@@ -62,7 +62,7 @@ class Advection1DModel(BaseModel):
         """advection: dudt = -(vel \cdot grad)u"""
         self.timestep += 1
         self.field_prev.load_state_dict(self.field.state_dict())
-        self._create_tb("step")
+        self._create_tb(f"step{self.timestep:03d}")
         self._advect()
         self.save_ckpt()
 
