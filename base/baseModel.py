@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm
 import shutil
 from tensorboardX import SummaryWriter
+from .networks import get_network
 
 
 class BaseModel(ABC):
@@ -19,17 +20,12 @@ class BaseModel(ABC):
         self.tb = None
         self.min_lr = 1e-8
         self.early_stop_plateau = 500
+        self.train_step = 0
 
         self.device = torch.device("cuda:0")
 
-        self._define_networks()
-
-        self.init_cond = None
-
-    @abstractmethod
-    def _define_networks(self):
-        """define networks that represent the field(s)"""
-        raise NotImplementedError
+    def _create_network(self, input_dim, output_dim):
+        return get_network(self.cfg, input_dim, output_dim).to(self.device)
 
     @property
     @abstractmethod
@@ -44,7 +40,7 @@ class BaseModel(ABC):
 
     @abstractmethod
     def initialize(self):
-        """fit initial condition"""
+        """fit network to initial condition"""
         raise NotImplementedError
 
     @abstractmethod
@@ -66,19 +62,13 @@ class BaseModel(ABC):
         self.log_path = os.path.join(self.cfg.log_dir, name)
         if os.path.exists(self.log_path) and overwrite:
             shutil.rmtree(self.log_path, ignore_errors=True)
-        return SummaryWriter(self.log_path)
+        self.tb = SummaryWriter(self.log_path)
 
     def _update_network(self, loss_dict):
         """update network by back propagation"""
         loss = sum(loss_dict.values())
         self.optimizer.zero_grad()
         loss.backward()
-
-        if self.cfg.grad_clip > 0:
-            param_list = []
-            for net in self._trainable_networks.values():
-                param_list = param_list + list(net.parameters())
-            torch.nn.utils.clip_grad_norm_(param_list, 0.1)
 
         self.optimizer.step()
         if self.scheduler is not None:
@@ -97,21 +87,24 @@ class BaseModel(ABC):
         """
         tag = func.__name__
         def loop(self, *args, **kwargs):
-            pbar = tqdm(range(self.max_n_iters))
-            self.tb.train_iter = 0
+            pbar = tqdm(range(self.max_n_iters), desc=f"{tag}[{self.timestep}]")
             self._reset_optimizer()
             min_loss = float("inf")
             accum_steps = 0
+            self.train_step = 0
             for i in pbar:
                 loss_dict = func(self, *args, **kwargs)
                 self._update_network(loss_dict)
+                self.train_step += 1
 
                 loss_value = {k: v.item() for k, v in loss_dict.items()}
 
                 self.tb.add_scalars(tag, loss_value, global_step=i)
-                self.tb.train_iter += 1
-                pbar.set_description(f"{tag}[{self.timestep}]")
                 pbar.set_postfix(loss_value)
+
+                if (i == 0 or (i + 1) % self.cfg.vis_frequency == 0) and hasattr(self, f"_vis{tag}"):
+                    vis_func = getattr(self, f"_vis{tag}")
+                    vis_func()
 
                 if loss_value["main"] < min_loss:
                     min_loss, accum_steps = loss_value["main"], 0

@@ -1,9 +1,8 @@
 import torch
 import torch.nn.functional as F
-from .base import BaseModel
-from .networks import get_network
-from .sampling import sample_boundary
-from utils.ops_utils import gradient
+from base import BaseModel, gradient, sample_random, sample_uniform, sample_boundary
+from .examples import get_examples
+from .visualize import draw_signal1D
 
 
 class Advection1DModel(BaseModel):
@@ -11,9 +10,11 @@ class Advection1DModel(BaseModel):
     def __init__(self, cfg):
         super().__init__(cfg)
 
-    def _define_networks(self):
-        self.field = get_network(self.cfg, 1, 1).to(self.device)
-        self.field_prev = get_network(self.cfg, 1, 1).to(self.device)
+        self.vel = cfg.vel
+        self.length = cfg.length
+
+        self.field = self._create_network(1, 1)
+        self.field_prev = self._create_network(1, 1)
         self._set_require_grads(self.field_prev, False)
 
     @property
@@ -21,9 +22,19 @@ class Advection1DModel(BaseModel):
         return {"field": self.field}
     
     def _sample_in_training(self):
-        pass
-    
+        return sample_random(self.sample_resolution, 1, device=self.device).requires_grad_(True) * self.length / 2
+
+    def sample_field(self, resolution, return_samples=False):
+        """sample current field with uniform grid points"""
+        grid_samples = sample_uniform(resolution, 1, device=self.device) * self.length / 2
+        out = self.field(grid_samples).squeeze(-1)
+        if return_samples:
+            return out, grid_samples.squeeze(-1)
+        return out
+
     def initialize(self):
+        if not hasattr(self, "init_cond_func"):
+            self.init_cond_func = get_examples(self.cfg.init_cond)
         self._create_tb("init")
         self._initialize()
         self.save_ckpt("init")
@@ -32,12 +43,20 @@ class Advection1DModel(BaseModel):
     def _initialize(self):
         """forward computation for initialization"""
         samples = self._sample_in_training()
-        ref = self.init_cond(samples)
+        ref = self.init_cond_func(samples)
         out = self.field(samples)
         loss_random = F.mse_loss(out, ref)
 
         loss_dict = {'main': loss_random}
         return loss_dict
+    
+    def _vis_initialize(self):
+        """visualization on tb during training"""
+        values, samples = self.sample_field(self.vis_resolution, return_samples=True)
+        values = values.detach().cpu().numpy()
+        samples = samples.detach().cpu().numpy()
+        fig = draw_signal1D(samples, values, y_max=1.0)
+        self.tb.add_figure("field", fig, global_step=self.train_step)
 
     def step(self):
         """advection: dudt = -(vel \cdot grad)u"""
@@ -65,9 +84,17 @@ class Advection1DModel(BaseModel):
         # Dirichlet boundary constraint
         # FIXME: hard-coded zero boundary condition to sample 1% points near boundary
         #        and fixed factor 1.0 for boundary loss
-        boundary_samples = sample_boundary(max(self.sample_resolution ** self.sdim // 100, 10), self.sdim, self.length)
+        boundary_samples = sample_boundary(max(self.sample_resolution // 100, 10), 1, device=self.device) * self.length / 2
         bound_u = self.field(boundary_samples)
         bc_loss = torch.mean(bound_u ** 2) * 1.
         loss_dict.update({'bc': bc_loss})
 
         return loss_dict
+
+    def _vis_advect(self):
+        """visualization on tb during training"""
+        values, samples = self.sample_field(self.vis_resolution, return_samples=True)
+        values = values.detach().cpu().numpy()
+        samples = samples.detach().cpu().numpy()
+        fig = draw_signal1D(samples, values, y_max=1.0)
+        self.tb.add_figure("field", fig, global_step=self.train_step)
