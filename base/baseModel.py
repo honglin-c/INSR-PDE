@@ -10,8 +10,8 @@ from .networks import get_network
 class BaseModel(ABC):
     def __init__(self, cfg):
         self.cfg = cfg
+        self.exp_dir = cfg.exp_dir
         self.dt = cfg.dt
-        
         self.max_n_iters = cfg.max_n_iters
         self.sample_resolution = cfg.sample_resolution
         self.vis_resolution = cfg.vis_resolution
@@ -47,6 +47,10 @@ class BaseModel(ABC):
     def step(self):
         """step the system by one time step (timestep >= 1). NOTE: warp with _timestepping."""
         raise NotImplementedError
+    
+    def write_output(self, output_folder):
+        """write visulized/discrete output"""
+        pass
 
     def _reset_optimizer(self, use_scheduler=True, gamma=0.1, patience=500, min_lr=1e-8):
         """create optimizer and scheduler"""

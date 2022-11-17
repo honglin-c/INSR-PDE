@@ -1,8 +1,10 @@
+import os
+import numpy as np
 import torch
 import torch.nn.functional as F
 from base import BaseModel, gradient, sample_random, sample_uniform, sample_boundary
 from .examples import get_examples
-from .visualize import draw_signal1D
+from .visualize import draw_signal1D, save_figure
 
 
 class Advection1DModel(BaseModel):
@@ -95,3 +97,15 @@ class Advection1DModel(BaseModel):
         samples = samples.detach().cpu().numpy()
         fig = draw_signal1D(samples, values, y_max=1.0)
         self.tb.add_figure("field", fig, global_step=self.train_step)
+
+    def write_output(self, output_folder):
+        values, samples = self.sample_field(self.vis_resolution, return_samples=True)
+        values = values.detach().cpu().numpy()
+        samples = samples.detach().cpu().numpy()
+        fig = draw_signal1D(samples, values, y_max=1.0)
+
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}.png")
+        save_figure(fig, save_path)
+
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}.npy")
+        np.savez(save_path, values)

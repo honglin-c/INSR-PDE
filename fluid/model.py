@@ -1,9 +1,11 @@
+import os
+import numpy as np
 import torch
 import torch.nn.functional as F
 from base import BaseModel, sample_random, sample_uniform, sample_boundary2D_separate
-from base import gradient, divergence, laplace
+from base import gradient, divergence, laplace, jacobian
 from .examples import get_examples
-from .visualize import draw_vector_field2D, draw_scalar_field2D
+from .visualize import draw_vector_field2D, draw_scalar_field2D, draw_curl, draw_magnitude, save_numpy_img, save_figure
 
 
 class Fluid2DModel(BaseModel):
@@ -25,7 +27,7 @@ class Fluid2DModel(BaseModel):
 
     def sample_field(self, resolution, return_samples=False):
         """sample current field with uniform grid points"""
-        grid_samples = sample_uniform(resolution, 2, device=self.device)
+        grid_samples = sample_uniform(resolution, 2, device=self.device).requires_grad_(True)
         out = self.velocity_field(grid_samples)
         if return_samples:
             return out, grid_samples
@@ -150,10 +152,9 @@ class Fluid2DModel(BaseModel):
 
     def _vis_advect_velocity(self):
         """visualization on tb during training"""
-        grid_samples = sample_uniform(self.vis_resolution, 2, device=self.device).requires_grad_(True)
+        curr_u_grid, grid_samples = self.sample_field(self.vis_resolution, return_samples=True)
         with torch.no_grad():
             prev_u_grid = self.velocity_field_prev(grid_samples).detach()
-        curr_u_grid = self.velocity_field(grid_samples)
 
         backtracked_position = grid_samples - prev_u_grid * self.cfg.dt
         backtracked_position = torch.clamp(backtracked_position, min=-1.0, max=1.0)
@@ -169,8 +170,7 @@ class Fluid2DModel(BaseModel):
 
     def _vis_solve_pressure(self):
         """visualization on tb during training"""
-        grid_samples = sample_uniform(self.vis_resolution, 2, device=self.device).requires_grad_(True)
-        out_u = self.velocity_field(grid_samples)
+        out_u, grid_samples = self.sample_field(self.vis_resolution, return_samples=True)
         div_u = divergence(out_u, grid_samples).detach()
         out_p = self.pressure_field(grid_samples)
         lap_p = laplace(out_p, grid_samples)
@@ -186,14 +186,13 @@ class Fluid2DModel(BaseModel):
 
     def _vis_projection(self):
         """visualization on tb during training"""
-        grid_samples = sample_uniform(self.vis_resolution, 2, device=self.device).requires_grad_(True)
+        curr_u, grid_samples = self.sample_field(self.vis_resolution, return_samples=True)
 
         with torch.no_grad():
             prev_u = self.velocity_field_prev(grid_samples).detach()
         p = self.pressure_field(grid_samples)
         grad_p = gradient(p, grid_samples).detach()
         target_u = prev_u - grad_p
-        curr_u = self.velocity_field(grid_samples)
         mse = torch.sum((curr_u - target_u) ** 2, dim=-1).detach().cpu().numpy()
 
         grad_p = grad_p.detach().cpu().numpy()
@@ -204,3 +203,30 @@ class Fluid2DModel(BaseModel):
         self.tb.add_figure('proj_target_u', draw_vector_field2D(target_u, grid_samples), global_step=self.train_step)
         self.tb.add_figure('proj_out_u', draw_vector_field2D(curr_u, grid_samples), global_step=self.train_step)
         self.tb.add_figure('proj_mse', draw_scalar_field2D(mse), global_step=self.train_step)
+
+    def write_output(self, output_folder):
+        grid_u, grid_samples = self.sample_field(self.vis_resolution, return_samples=True)
+
+        u_mag = torch.sqrt(torch.sum(grid_u ** 2, dim=-1))
+        jaco, _ = jacobian(grid_u, grid_samples)
+        u_curl = jaco[..., 1, 0] - jaco[..., 0, 1]
+        
+        grid_samples = grid_samples.detach().cpu().numpy()
+        grid_u = grid_u.detach().cpu().numpy()
+        u_mag = u_mag.detach().cpu().numpy()
+        u_curl = u_curl.detach().cpu().numpy()
+
+        fig = draw_vector_field2D(grid_u, grid_samples)
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_vel.png")
+        save_figure(fig, save_path)
+
+        mag_img = draw_magnitude(u_mag)
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_mag.png")
+        save_numpy_img(mag_img, save_path)
+
+        curl_img = draw_curl(u_curl)
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_curl.png")
+        save_numpy_img(curl_img, save_path)
+
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}.npy")
+        np.save(save_path, grid_u)

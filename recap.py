@@ -1,10 +1,8 @@
 import os
 from config import Config
 
-# create experiment config containing all hyperparameters
-cfg = Config("train")
+cfg = Config("recap")
 
-# create model
 if cfg.pde == "advection":
     from advection import Advection1DModel as neuralModel
 elif cfg.pde == "fluid":
@@ -13,15 +11,14 @@ else:
     raise NotImplementedError
 model = neuralModel(cfg)
 
-output_folder = os.path.join(cfg.exp_dir, "results")
+output_folder = os.path.join(cfg.exp_dir, cfg.output)
 os.makedirs(output_folder, exist_ok=True)
 
-# start time integration
 for t in range(cfg.n_timesteps + 1):
-    print(f"time step: {t}")
-    if t == 0:
-        model.initialize()
-    else:
-        model.step()
+    try:
+        model.load_ckpt(t)
+    except Exception as e:
+        print(f"Load checkpoint t={t} failed.\n {e}")
+        break
 
     model.write_output(output_folder)

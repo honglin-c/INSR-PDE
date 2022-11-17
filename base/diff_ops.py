@@ -69,12 +69,11 @@ def jacobian(y: torch.FloatTensor, x: torch.FloatTensor):
     Returns:
         jac (torch.FloatTensor): (N, dim_y, dim_x)
     """
-    N = y.shape[0]
-    jac = torch.zeros(N, y.shape[-1], x.shape[-1]).to(y.device)
+    jac = torch.zeros(*y.shape[:-1], y.shape[-1], x.shape[-1]).to(y.device)
 
     for i in range(y.shape[-1]):
-        y_i = y[:, i]
-        jac[:, i, :] = grad(y_i, x, torch.ones_like(y_i), create_graph=True)[0]
+        y_i = y[..., i]
+        jac[..., i, :] = grad(y_i, x, torch.ones_like(y_i), create_graph=True)[0]
 
     status = 0
     if torch.any(torch.isnan(jac)):

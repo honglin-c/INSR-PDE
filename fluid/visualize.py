@@ -1,3 +1,6 @@
+from PIL import Image
+from scipy.special import erf
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 
@@ -20,3 +23,32 @@ def draw_scalar_field2D(arr, vmin=None, vmax=None, cmap=None):
     fig.colorbar(cax1, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
     return fig
+
+
+def draw_curl(curl):
+    """draw 2D curl(vorticity) field"""
+    curl = (erf(curl) + 1) / 2 # map range to 0~1
+    img = cm.bwr(curl)
+    img = (img * 255).astype('uint8')
+    return img
+
+
+def draw_magnitude(mag):
+    """draw 2D velocity magnitude"""
+    mag = erf(mag)
+    img = cm.Blues(mag)
+    img = (img * 255).astype('uint8')
+    return img
+
+
+def save_numpy_img(arr, save_path):
+    img = Image.fromarray(arr)
+    if save_path is not None:
+        img.save(save_path)
+    return img
+
+
+def save_figure(fig, save_path, close=True):
+    plt.savefig(save_path, bbox_inches='tight')
+    if close:
+        plt.close(fig)

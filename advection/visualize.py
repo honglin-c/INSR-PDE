@@ -11,3 +11,9 @@ def draw_signal1D(x, y, y_max=None, y_gt=None):
     ax.set_aspect('equal')
     fig.tight_layout()
     return fig
+
+
+def save_figure(fig, save_path, close=True):
+    plt.savefig(save_path, bbox_inches='tight')
+    if close:
+        plt.close(fig)

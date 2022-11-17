@@ -64,6 +64,8 @@ class Config(object):
             self._add_network_config_(parent_parser)
             self._add_training_config_(parent_parser)
             self._add_timestep_config_(parent_parser)
+        else:
+            self._add_recap_config_(parent_parser)
         
         parser = argparse.ArgumentParser(add_help=False)      
         subparsers = parser.add_subparsers(dest="pde", required=True)
@@ -104,6 +106,12 @@ class Config(object):
         group.add_argument('-sr', '--sample_resolution', type=int, default=128, help='number of samples per iterations')
         group.add_argument('-vr', '--vis_resolution', type=int, default=500)
         group.add_argument('--early_stop', action=argparse.BooleanOptionalAction, default=True)
+    
+    def _add_recap_config_(self, parser):
+        """recap configuration"""
+        group = parser.add_argument_group('recap')
+        group.add_argument('-o', '--output', type=str, default="results", help="output folder under exp folder")
+        group.add_argument('-vr', '--vis_resolution', type=int, default=500)
         
     def _add_timestep_config_(self, parser):
         """configuration for pde time stepping"""
