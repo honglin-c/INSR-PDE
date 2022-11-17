@@ -113,7 +113,7 @@ class Config(object):
     def _add_recap_config_(self, parser):
         """recap configuration"""
         group = parser.add_argument_group('recap')
-        group.add_argument('-o', '--output', type=str, default="results", help="output folder under exp folder")
+        group.add_argument('-o', '--output', type=str, default="recap", help="output folder under exp folder")
         group.add_argument('-vr', '--vis_resolution', type=int, default=500)
         
     def _add_timestep_config_(self, parser):

@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 from config import Config
 
 cfg = Config("recap")
@@ -14,7 +15,7 @@ model = neuralModel(cfg)
 output_folder = os.path.join(cfg.exp_dir, cfg.output)
 os.makedirs(output_folder, exist_ok=True)
 
-for t in range(cfg.n_timesteps + 1):
+for t in tqdm(range(cfg.n_timesteps + 1)):
     try:
         model.load_ckpt(t)
     except Exception as e:
