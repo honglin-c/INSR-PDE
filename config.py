@@ -47,12 +47,15 @@ class Config(object):
                 exit()
             shutil.rmtree(self.exp_dir)
         for path in [self.log_dir, self.model_dir]:
-            os.makedirs(path, exist_ok=True)
+            os.makedirs(path)
 
         # save this configuration for backup
-        # backup_dir = os.path.join(self.exp_dir, "backup")
-        # os.makedirs(backup_dir, exist_ok=True)
-        # os.system(f"cp *.py {backup_dir}/")
+        backup_dir = os.path.join(self.exp_dir, "backup")
+        os.makedirs(backup_dir, exist_ok=True)
+        os.system(f"cp *.py {backup_dir}/")
+        os.system(f"mkdir -p {backup_dir}/base | cp base/*.py {backup_dir}/base/")
+        os.system(f"mkdir -p {backup_dir}/{args.pde} | cp {args.pde}/*.py {backup_dir}/{args.pde}/")
+
         with open(os.path.join(self.exp_dir, 'config.json'), 'w') as f:
             json.dump(args.__dict__, f, indent=2)
 
