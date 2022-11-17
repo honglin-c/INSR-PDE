@@ -32,12 +32,11 @@ class Advection1DModel(BaseModel):
             return out, grid_samples.squeeze(-1)
         return out
 
+    @BaseModel._timestepping
     def initialize(self):
         if not hasattr(self, "init_cond_func"):
             self.init_cond_func = get_examples(self.cfg.init_cond)
-        self._create_tb("init")
         self._initialize()
-        self.save_ckpt("init")
 
     @BaseModel._training_loop
     def _initialize(self):
@@ -58,13 +57,11 @@ class Advection1DModel(BaseModel):
         fig = draw_signal1D(samples, values, y_max=1.0)
         self.tb.add_figure("field", fig, global_step=self.train_step)
 
+    @BaseModel._timestepping
     def step(self):
         """advection: dudt = -(vel \cdot grad)u"""
-        self.timestep += 1
         self.field_prev.load_state_dict(self.field.state_dict())
-        self._create_tb(f"step{self.timestep:03d}")
         self._advect()
-        self.save_ckpt()
 
     @BaseModel._training_loop
     def _advect(self):

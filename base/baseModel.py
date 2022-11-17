@@ -15,7 +15,7 @@ class BaseModel(ABC):
         self.max_n_iters = cfg.max_n_iters
         self.sample_resolution = cfg.sample_resolution
         self.vis_resolution = cfg.vis_resolution
-        self.timestep = 0
+        self.timestep = -1
         
         self.tb = None
         self.min_lr = 1e-8
@@ -40,12 +40,12 @@ class BaseModel(ABC):
 
     @abstractmethod
     def initialize(self):
-        """fit network to initial condition"""
+        """fit network to initial condition (timestep = 0). NOTE: warp with _timestepping."""
         raise NotImplementedError
 
     @abstractmethod
     def step(self):
-        """step the system by one time step"""
+        """step the system by one time step (timestep >= 1). NOTE: warp with _timestepping."""
         raise NotImplementedError
 
     def _reset_optimizer(self, use_scheduler=True, gamma=0.1, patience=500, min_lr=1e-8):
@@ -62,6 +62,8 @@ class BaseModel(ABC):
         self.log_path = os.path.join(self.cfg.log_dir, name)
         if os.path.exists(self.log_path) and overwrite:
             shutil.rmtree(self.log_path, ignore_errors=True)
+        if self.tb is not None:
+            self.tb.close()
         self.tb = SummaryWriter(self.log_path)
 
     def _update_network(self, loss_dict):
@@ -79,6 +81,15 @@ class BaseModel(ABC):
             p.requires_grad_(require_grad)
     
     @classmethod
+    def _timestepping(cls, func):
+        def warp(self):
+            self.timestep += 1
+            self._create_tb(f"t{self.timestep:03d}")
+            func(self)
+            self.save_ckpt()
+        return warp
+
+    @classmethod
     def _training_loop(cls, func):
         """a decorator function that warps a function inside a training loop
 
@@ -93,6 +104,7 @@ class BaseModel(ABC):
             accum_steps = 0
             self.train_step = 0
             for i in pbar:
+                # one gradient descent step
                 loss_dict = func(self, *args, **kwargs)
                 self._update_network(loss_dict)
                 self.train_step += 1
@@ -102,10 +114,12 @@ class BaseModel(ABC):
                 self.tb.add_scalars(tag, loss_value, global_step=i)
                 pbar.set_postfix(loss_value)
 
+                # optional visualization on tensorboard
                 if (i == 0 or (i + 1) % self.cfg.vis_frequency == 0) and hasattr(self, f"_vis{tag}"):
                     vis_func = getattr(self, f"_vis{tag}")
                     vis_func()
 
+                # early stop when converged
                 if loss_value["main"] < min_loss:
                     min_loss, accum_steps = loss_value["main"], 0
                 else:
@@ -143,11 +157,3 @@ class BaseModel(ABC):
         for name, net in self._trainable_networks.items():
             net.load_state_dict(checkpoint[f'net_{name}'])
         self.timestep = checkpoint['timestep']
-
-    # def draw(self, tag, resolution, **kwargs):
-    #     func_str = f'draw_{tag}'
-    #     try:
-    #         return getattr(self, func_str)(resolution, **kwargs)
-    #     except Exception as e:
-    #         print(f"no method named '{func_str}'.")
-    #         pass

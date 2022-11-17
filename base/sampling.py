@@ -60,14 +60,3 @@ def sample_boundary2D_separate(N, side, epsilon=1e-4, device='cpu'):
         coords.append(points)
     coords = torch.cat(coords, dim=0)
     return coords
-
-
-if __name__ == "__main__":
-    res = 2
-    a = sample_uniform(res, 1)
-    print(a)
-    print(a.shape)
-
-    a = sample_uniform(res, 2)
-    print(a)
-    print(a.shape)

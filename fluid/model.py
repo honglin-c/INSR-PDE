@@ -31,12 +31,11 @@ class Fluid2DModel(BaseModel):
             return out, grid_samples
         return out
 
+    @BaseModel._timestepping
     def initialize(self):
         if not hasattr(self, "init_cond_func"):
             self.init_cond_func = get_examples(self.cfg.init_cond)
-        self._create_tb("init")
         self._initialize()
-        self.save_ckpt("init")
 
     @BaseModel._training_loop
     def _initialize(self):
@@ -57,11 +56,9 @@ class Fluid2DModel(BaseModel):
         fig = draw_vector_field2D(velos, samples)
         self.tb.add_figure("velocity", fig, global_step=self.train_step)
 
+    @BaseModel._timestepping
     def step(self):
         """operater splitting scheme"""
-        self.timestep += 1
-        self._create_tb(f"step{self.timestep:03d}")
-
         self.velocity_field_prev.load_state_dict(self.velocity_field.state_dict())
         self._advect_velocity()
 
@@ -69,8 +66,6 @@ class Fluid2DModel(BaseModel):
 
         self.velocity_field_prev.load_state_dict(self.velocity_field.state_dict())
         self._projection()
-    
-        self.save_ckpt()
     
     @BaseModel._training_loop
     def _advect_velocity(self):
