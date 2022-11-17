@@ -7,6 +7,8 @@ cfg = Config("train")
 # create model
 if cfg.pde == "advection":
     from advection import Advection1DModel as neuralModel
+elif cfg.pde == "fluid":
+    from fluid import Fluid2DModel as neuralModel
 else:
     raise NotImplementedError
 model = neuralModel(cfg)
