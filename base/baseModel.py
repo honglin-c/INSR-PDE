@@ -18,7 +18,7 @@ class BaseModel(ABC):
         self.timestep = -1
         
         self.tb = None
-        self.min_lr = 1e-8
+        self.min_lr = 1.1e-8
         self.early_stop_plateau = 500
         self.train_step = 0
 
@@ -129,8 +129,7 @@ class BaseModel(ABC):
                 else:
                     accum_steps += 1
 
-                if self.cfg.early_stop and self.optimizer.param_groups[0]['lr'] <= self.min_lr \
-                        and accum_steps >= self.early_stop_plateau:
+                if self.cfg.early_stop and self.optimizer.param_groups[0]['lr'] <= self.min_lr:
                     tqdm.write(f"early stopping at iteration {i}")
                     break
         return loop
