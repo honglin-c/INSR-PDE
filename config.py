@@ -76,7 +76,7 @@ class Config(object):
         parser_flu = subparsers.add_parser("fluid", parents=[parent_parser])
         parser_ela = subparsers.add_parser("elasticity", parents=[parent_parser])
         if self.is_train:
-            self._add_addvection_config_(parser_adv)
+            self._add_advection_config_(parser_adv)
             self._add_fluid_config_(parser_flu)
             self._add_elasticity_config_(parser_ela)
 
@@ -124,7 +124,7 @@ class Config(object):
         group.add_argument('-T','--n_timesteps', type=int, default=30, help='number of time steps')
         group.add_argument('--fps', type=int, default=10)
 
-    def _add_addvection_config_(self, parser):
+    def _add_advection_config_(self, parser):
         group = parser.add_argument_group('advection')
         group.add_argument('-L','--length', type=float, default=4.0, help='field length')
         group.add_argument('--vel', type=float, default=0.25, help='constant velocity value')
