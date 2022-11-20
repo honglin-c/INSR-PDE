@@ -133,4 +133,36 @@ class Config(object):
         pass
 
     def _add_elasticity_config_(self, parser):
-        pass
+        group = parser.add_argument_group('elasticity')
+        group.add_argument('--dim', type=int, default=2)
+        group.add_argument('--sample_pattern', type=str, nargs='*',
+                            default=['random', 'uniform'],
+                            help='The sampling strategy to be used during the training.')
+
+        group.add_argument('--energy', type=str, nargs='*', 
+                            default=['arap', 'kinematics', 'external', 'constraint'],
+                            help='The energy to be used.')
+        group.add_argument('--ratio_constraint', type=float, default=1e3)
+        group.add_argument('--ratio_volume', type=float, default=1e1)
+        group.add_argument('--ratio_arap', type=float, default=1e0)
+        group.add_argument('--ratio_collide', type=float, default=1e0)
+        group.add_argument('--ratio_kinematics', type=float, default=1e0)
+
+        group.add_argument('--use_mesh', type=bool, default=False)
+        group.add_argument('--mesh_path', type=str, default="./data/woody.obj", help="path to the mesh")
+
+        group.add_argument('-T_ext', '--external_force_timesteps', type=int, default=5)
+        group.add_argument('-f_ext_x', '--external_force_x', type=float, default=0)
+        group.add_argument('-f_ext_y', '--external_force_y', type=float, default=0)
+        group.add_argument('-f_ext_z', '--external_force_z', type=float, default=0)
+
+        group.add_argument('-fix_right_x', '--constraint_right_offset_x', type=float, default=1e0)
+        group.add_argument('-fix_right_y', '--constraint_right_offset_y', type=float, default=0)
+        group.add_argument('-fix_right_z', '--constraint_right_offset_z', type=float, default=0)
+
+        group.add_argument('--plane_height', type=float, default=-2)
+
+        group.add_argument('-collide_circle_x', '--collide_circle_x', type=float, default=0)
+        group.add_argument('-collide_circle_y', '--collide_circle_y', type=float, default=-2e0)
+        group.add_argument('-collide_circle_z', '--collide_circle_z', type=float, default=0)
+        group.add_argument('-collide_circle_r', '--collide_circle_radius', type=float, default=1)
