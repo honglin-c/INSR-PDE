@@ -149,7 +149,7 @@ class Config(object):
         group.add_argument('--ratio_kinematics', type=float, default=1e0)
 
         group.add_argument('--use_mesh', type=bool, default=False)
-        group.add_argument('--mesh_path', type=str, default="./data/woody.obj", help="path to the mesh")
+        group.add_argument('--mesh_path', type=str, default="./elasticity/data/woody.obj", help="path to the mesh")
 
         group.add_argument('-T_ext', '--external_force_timesteps', type=int, default=5)
         group.add_argument('-f_ext_x', '--external_force_x', type=float, default=0)

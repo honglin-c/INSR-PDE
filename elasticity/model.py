@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from .losses import *
 from base import jacobian
 from .torchgp import normalize, boundary_faces, sample_surface, volume_weighted_distribution, area_weighted_distribution, per_vertex_areas
+import meshio
 
 class ElasticityModel(BaseModel):
     def __init__(self, cfg):
@@ -59,6 +60,17 @@ class ElasticityModel(BaseModel):
             self._init_mesh()
         self.sample_vis = self._sample_in_visualization(self.vis_resolution)
 
+        # config for initialization sampling (hyperparameters)
+        if self.use_mesh:
+            self.sample_resolution_init = self.sample_resolution
+        else:
+            if self.dim == 2:
+                self.sample_resolution_init = 500
+            elif self.dim == 3:
+                self.sample_resolution_init = 100
+            else:
+                raise NotImplementedError
+
 
     def _init_mesh(self):
         # setup mesh
@@ -94,7 +106,7 @@ class ElasticityModel(BaseModel):
     @BaseModel._training_loop
     def _initialize(self):
         """initialize all field to zeros"""
-        samples = self._sample_in_training(self.sample_resolution)
+        samples = self._sample_in_training(self.sample_resolution_init)
 
         out_wt = self.deformation_field(samples)
         loss_wt = torch.mean(out_wt ** 2)
