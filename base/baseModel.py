@@ -58,8 +58,9 @@ class BaseModel(ABC):
         for net in self._trainable_networks.values():
             param_list.append({"params": net.parameters(), "lr": self.cfg.lr})
         self.optimizer = torch.optim.Adam(param_list)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=gamma, 
-            min_lr=min_lr, patience=patience, verbose=True) if use_scheduler else None
+        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.999)
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=gamma, 
+        #     min_lr=min_lr, patience=patience, verbose=True) if use_scheduler else None
 
     def _create_tb(self, name, overwrite=True):
         """create tensorboard log"""
@@ -78,7 +79,8 @@ class BaseModel(ABC):
 
         self.optimizer.step()
         if self.scheduler is not None:
-            self.scheduler.step(loss_dict['main'])
+            self.scheduler.step()
+            # self.scheduler.step(loss_dict['main'])
 
     def _set_require_grads(self, model, require_grad):
         for p in model.parameters():
