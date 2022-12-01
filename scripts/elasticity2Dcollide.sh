@@ -1,5 +1,5 @@
 python main.py elasticity \
-    --tag elasticity2D_collide \
+    --tag elasticity2D_collide3 \
     --num_hidden_layers 3 \
     --hidden_features 68 \
     -sr 100 \

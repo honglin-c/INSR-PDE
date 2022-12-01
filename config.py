@@ -128,6 +128,8 @@ class Config(object):
         group = parser.add_argument_group('advection')
         group.add_argument('-L','--length', type=float, default=4.0, help='field length')
         group.add_argument('--vel', type=float, default=0.25, help='constant velocity value')
+        group.add_argument('--dim', type=int, default=1, help='dimension for the advection equation')
+        group.add_argument('--vis_dim', type=int, default=0, help='dimension for the visualization of advection equation')
 
     def _add_fluid_config_(self, parser):
         pass
