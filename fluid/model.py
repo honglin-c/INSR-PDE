@@ -63,11 +63,14 @@ class Fluid2DModel(BaseModel):
         """operater splitting scheme"""
         self.velocity_field_prev.load_state_dict(self.velocity_field.state_dict())
         self._advect_velocity()
+        self.save_ckpt(f"t{self.timestep:03d}_advect")
 
         self._solve_pressure()
+        self.save_ckpt(f"t{self.timestep:03d}_pressure")
 
         self.velocity_field_prev.load_state_dict(self.velocity_field.state_dict())
         self._projection()
+        self.save_ckpt(f"t{self.timestep:03d}_projection")
     
     @BaseModel._training_loop
     def _advect_velocity(self):
