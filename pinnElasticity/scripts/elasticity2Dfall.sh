@@ -1,5 +1,5 @@
-python main.py elasticity \
-    --tag elasticity2D_fall \
+python main.py \
+    --exp_name elasticity2D_fall \
     --num_hidden_layers 3 \
     --hidden_features 68 \
     -sr 100 \

@@ -11,10 +11,7 @@ from utils.file_utils import ensure_dirs
 cfg = Config()
 
 # create network and training agent
-fluid = NeuralElasticity(cfg)
-
-# add source
-source_func = get_source_velocity(cfg.src)
+elasticity = NeuralElasticity(cfg)
 
 # train
-fluid.train(source_func)
+elasticity.train()

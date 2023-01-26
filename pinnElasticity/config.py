@@ -103,19 +103,13 @@ class Config(object):
         group.add_argument('--grad_clip', type=float, default=-1, help='grad clipping, l2 norm')
         group.add_argument('--early_stop', action='store_true', help="early_stopping")
         
-        group.add_argument('--dt', type=float, default=0.05)
-        group.add_argument('-T','--n_timesteps', type=int, default=30)
-        group.add_argument('--visc', type=float, default=0)
-        group.add_argument('--diff', type=float, default=0)
+        group.add_argument('--dt', type=float, default=0.1)
+        group.add_argument('-T','--n_timesteps', type=int, default=1)
         group.add_argument('-sr', '--sample_resolution', type=int, default=128)
         group.add_argument('-vr', '--vis_resolution', type=int, default=32)
         group.add_argument('--fps', type=int, default=10)
 
-        group.add_argument('--src', type=str, default=None, help='which example to use', required=True)
-        group.add_argument('--src_duration', type=int, default=1, help='source duration')
-        group.add_argument('--src_start_frame', type=int, default=1, help='starting frame of the source loaded')
         group.add_argument('--boundary_cond', type=str, default='zero', choices=['zero', 'none'])
-        group.add_argument('--grad_sup', action='store_true', help="supervise gradient when adding source")
         group.add_argument('--sample', type=str, default='random', choices=['random', 'uniform', 'random+uniform', 'fixed'],
                             help='The sampling strategy to be used during the training.')
 
