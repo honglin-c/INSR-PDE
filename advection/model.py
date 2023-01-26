@@ -16,6 +16,12 @@ class AdvectionNDModel(BaseModel):
         self.dim = cfg.dim
         self.vel = cfg.vel * torch.ones(self.dim).cuda()
         self.vis_dim = cfg.vis_dim if cfg.vis_dim > 0 else cfg.dim
+        self.vis_resolution = cfg.vis_resolution
+
+        if self.dim == 2:        
+            self.vis_samples = sample_uniform(self.vis_resolution, self.dim, device=self.device) * self.length / 2
+        else:
+            self.vis_samples = sample_random(self.vis_resolution ** self.dim, self.dim, device=self.device) * self.length / 2
 
         self.field = self._create_network(self.dim, 1)
         self.field_prev = self._create_network(self.dim, 1)
@@ -26,11 +32,20 @@ class AdvectionNDModel(BaseModel):
         return {"field": self.field}
     
     def _sample_in_training(self):
-        return sample_random(self.sample_resolution, self.dim, device=self.device).requires_grad_(True) * self.length / 2
+        return sample_random(self.sample_resolution ** self.dim, self.dim, device=self.device).requires_grad_(True) * self.length / 2
 
-    def sample_field(self, resolution, return_samples=False, to_squeeze = True):
+    def sample_field(self, resolution, return_samples=False, to_squeeze = True, is_uniform = True, use_preset = False):
         """sample current field with uniform grid points"""
-        grid_samples = sample_uniform(resolution, self.dim, device=self.device) * self.length / 2
+        if use_preset:
+            grid_samples = self.vis_samples
+        else:
+            if self.dim > 3:
+                is_uniform = False
+            if is_uniform:
+                grid_samples = sample_uniform(resolution, self.dim, device=self.device) * self.length / 2
+            else:
+                grid_samples = sample_random(self.sample_resolution ** self.dim, self.dim, device=self.device) * self.length / 2
+            
         if to_squeeze:
             out = self.field(grid_samples).squeeze(-1)
         else:
@@ -70,7 +85,7 @@ class AdvectionNDModel(BaseModel):
     
     def _vis_initialize(self):
         """visualization on tb during training"""
-        values, samples = self.sample_field(self.vis_resolution, return_samples=True, to_squeeze=False)
+        values, samples = self.sample_field(self.vis_resolution, return_samples=True, to_squeeze=False, use_preset=True)
         values = values.detach().cpu().numpy()
         samples = samples.detach().cpu().numpy()
         if self.vis_dim == 2:
@@ -112,28 +127,88 @@ class AdvectionNDModel(BaseModel):
 
         return loss_dict
 
+
+    def _compute_groundtruth(self, samples):
+        '''compute the groundtruth using method of characteristics'''
+        t = self.timestep * self.dt
+        values_gt = self.init_cond_func(self.vis_samples - t * self.vel)
+        return values_gt
+
+
     def _vis_advect(self):
         """visualization on tb during training"""
-        values, samples = self.sample_field(self.vis_resolution, return_samples=True, to_squeeze=False)
+        values, samples = self.sample_field(self.vis_resolution, return_samples=True, to_squeeze=False, use_preset=True)
+
+        values_gt = self._compute_groundtruth(samples).cpu().numpy()
+        
         values = values.detach().cpu().numpy()
         samples = samples.detach().cpu().numpy()
         if self.vis_dim == 2:
             fig = scatter_signal2D(samples, color=values)
+        elif self.vis_dim == 1:
+            fig = scatter_signal1D(samples, values, y_max=1.0)
         else:
-            fig = scatter_signal1D(samples[:,-1], values[:,-1], y_max=1.0)
+            fig = scatter_signal2D(samples[:,:-2], color=values[:,:-2])
+        # else:
+        #     fig = scatter_signal1D(samples[:,-1], values[:,-1], y_max=1.0)
         self.tb.add_figure("field", fig, global_step=self.train_step)
 
+        values_error = np.linalg.norm(values-values_gt, axis=-1)
+        if self.vis_dim == 2:
+            fig = scatter_signal2D(samples, color=values_error)
+        elif self.vis_dim == 1:
+            fig = scatter_signal1D(samples, values_error, y_max=1.0)
+        else:
+            fig = scatter_signal2D(samples[:,:-2], color=values_error[:,:-2])
+        # else:
+        #     fig = scatter_signal1D(samples[:,-1], values_error[:,-1], y_max=1.0)
+        self.tb.add_figure("error_field", fig, global_step=self.train_step)
+
+
     def write_output(self, output_folder):
-        values, samples = self.sample_field(self.vis_resolution, return_samples=True, to_squeeze=False)
+        values, samples = self.sample_field(self.vis_resolution, return_samples=True, to_squeeze=False, use_preset=True)
+
+        values_gt = self._compute_groundtruth(samples).cpu().numpy()
         values = values.detach().cpu().numpy()
         samples = samples.detach().cpu().numpy()
         if self.vis_dim == 2:
             fig = scatter_signal2D(samples, color=values)
+        elif self.vis_dim == 1:
+            fig = scatter_signal1D(samples, values, y_max=1.0)
         else:
-            fig = scatter_signal1D(samples[:,-1], values[:,-1], y_max=1.0)
+            fig = scatter_signal2D(samples[:,:-2], color=values[:,:-2])
 
         save_path = os.path.join(output_folder, f"t{self.timestep:03d}.png")
         save_figure(fig, save_path)
 
         save_path = os.path.join(output_folder, f"t{self.timestep:03d}.npy")
         np.savez(save_path, values)
+
+        values_error = np.linalg.norm(values-values_gt, axis=-1)
+        if self.vis_dim == 2:
+            fig = scatter_signal2D(samples, color=values_error)
+        elif self.vis_dim == 1:
+            fig = scatter_signal1D(samples, values_error, y_max=1.0)
+        else:
+            fig = scatter_signal2D(samples[:,:-2], color=values_error[:,:-2])
+
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_error.png")
+        save_figure(fig, save_path)
+
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_samples.npy")
+        np.savez(save_path, samples)
+        
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_error.npy")
+        np.savez(save_path, values_error)
+
+        if self.vis_dim == 2:
+            fig = scatter_signal2D(samples, color=values_gt)
+        elif self.vis_dim == 1:
+            fig = scatter_signal1D(samples, values_gt, y_max=1.0)
+        else:
+            fig = scatter_signal2D(samples[:,:-2], color=values_gt[:,:-2])
+
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_gt.png")
+        save_figure(fig, save_path)
+
+        

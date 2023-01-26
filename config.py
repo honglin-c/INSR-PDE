@@ -104,7 +104,7 @@ class Config(object):
         group = parser.add_argument_group('training')
         group.add_argument('--ckpt', type=str, default=None, required=False, help="desired checkpoint to restore")
         group.add_argument('--vis_frequency', type=int, default=1000, help="visualize output every x iterations")
-        group.add_argument('--max_n_iters', type=int, default=20000, help='number of iterations to train every time step')
+        group.add_argument('-iter', '--max_n_iters', type=int, default=20000, help='number of iterations to train every time step')
         group.add_argument('--lr', type=float, default=1e-4, help='initial learning rate')
         group.add_argument('-sr', '--sample_resolution', type=int, default=128, help='number of samples per iterations')
         group.add_argument('-vr', '--vis_resolution', type=int, default=500)

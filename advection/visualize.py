@@ -37,7 +37,7 @@ def draw_signal1D(x, y, y_max=None, y_gt=None):
 def scatter_signal1D(x, y, y_max=None, y_gt=None):
     fig, ax = plt.subplots()
     if y_gt is not None:
-        ax.scatter(x, y_gt, color='red', alpha=0.2, s=0.5)
+        ax.scatter(x, y_gt, color='red', alpha=0.2, s=0.2)
     ax.scatter(x, y)
     if y_max is not None:
         ax.set_ylim(0, y_max)
@@ -49,11 +49,12 @@ def scatter_signal1D(x, y, y_max=None, y_gt=None):
 def scatter_signal2D(arr, vmin=None, vmax=None, color=None, scatter_radius = 1.0, cmap = 'cool'):
     fig, ax = plt.subplots()
     if color is None:
-        ax.scatter(arr[:,0], arr[:,1], c = arr[:,0]+arr[:,1], cmap=cmap, s=scatter_radius)
+        sc = ax.scatter(arr[:,0], arr[:,1], c = arr[:,0]+arr[:,1], cmap=cmap, s=scatter_radius)
     else:
-        ax.scatter(arr[:,0], arr[:,1], c = color, cmap=cmap, s=scatter_radius)
+        sc = ax.scatter(arr[:,0], arr[:,1], c = color, cmap=cmap, s=scatter_radius)
     ax.set_aspect('equal')
     fig.tight_layout()
+    fig.colorbar(sc)
     return fig
 
 

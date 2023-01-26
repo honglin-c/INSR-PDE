@@ -36,20 +36,22 @@ def sample_boundary(N, sdim, epsilon=1e-4, device='cpu'):
             points[:, 1] = torch.rand(N // 4, device=device) * (y_b[1] - y_b[0]) + y_b[0]
             coords.append(points)
         coords = torch.cat(coords, dim=0)
-    else:
-        raise NotImplementedError
-        # boundary_ranges = np.repeat([[[-1,1]]], sdim, axis=1)
-        # boundary_ranges = np.repeat(boundary_ranges, 2**sdim, axis=0)
-        # coords = []
-        # for bound in boundary_ranges:
-        #     points = torch.empty(N // (2**sdim), 2, device=device)
-        #     for d in range(0, sdim):
-        #     x_b, y_b = bound
-            
-        #     points[:, 0] = torch.rand(N // 4, device=device) * (x_b[1] - x_b[0]) + x_b[0]
-        #     points[:, 1] = torch.rand(N // 4, device=device) * (y_b[1] - y_b[0]) + y_b[0]
-        #     coords.append(points)
-        # coords = torch.cat(coords, dim=0)
+    else: 
+        boundary_ranges = np.repeat([[[-1.,1.]]], sdim, axis=1)
+        boundary_ranges = np.repeat(boundary_ranges, sdim*2, axis=0)
+        for i in range(0, sdim):
+            boundary_ranges[2*i, i, :] = [-1-epsilon, -1+epsilon]
+            boundary_ranges[2*i+1, i, :] = [1-epsilon, 1+epsilon]
+
+        coords = []
+        for bound in boundary_ranges:
+            points = torch.empty(N // (sdim*2), sdim, device=device)
+            for d in range(0, sdim):
+                x_b = bound[d, :]           
+                points[:, d] = torch.rand(N // (sdim*2), device=device) * (x_b[1] - x_b[0]) + x_b[0]
+
+            coords.append(points)
+        coords = torch.cat(coords, dim=0)
     return coords
 
 

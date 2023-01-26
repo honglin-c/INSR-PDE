@@ -1,6 +1,6 @@
 import torch
 from functools import partial
-
+import math
 
 def get_examples(src, sdim=1, **kwargs):
     # select source function
@@ -17,8 +17,10 @@ def gaussian_like(x, mu=0, sigma=0.1):
     """normalized gaussian distribution"""
     return torch.exp(-0.5 * (x - mu) ** 2 / (sigma ** 2))
 
+
 def gaussianND_like(x, sdim=1, mu=0, sigma=0.1):
     """normalized gaussian distribution"""
-    if sdim > 1:
-        mu = mu * torch.ones(sdim).cuda()
-    return torch.exp(-0.5 * torch.sum((x - mu) ** 2, dim=-1, keepdim=True) / (sigma ** 2))
+    if sdim == 1:
+        return gaussian_like(x, mu, sigma)
+
+    return torch.exp(-0.5 * torch.sum((x - mu)**2, dim=-1, keepdim=True) / (sdim * sigma ** 2))

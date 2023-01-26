@@ -52,7 +52,7 @@ class BaseModel(ABC):
         """write visulized/discrete output"""
         pass
 
-    def _reset_optimizer(self, use_scheduler=True, gamma=0.1, patience=1000, min_lr=1e-8):
+    def _reset_optimizer(self, use_scheduler=True, gamma=0.1, patience=700, min_lr=1e-8):
         """create optimizer and scheduler"""
         param_list = []
         for net in self._trainable_networks.values():

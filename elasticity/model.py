@@ -54,6 +54,8 @@ class ElasticityModel(BaseModel):
         self.constraint_offset_right = torch.tensor([cfg.constraint_right_offset_x, cfg.constraint_right_offset_y, cfg.constraint_right_offset_z])[0:self.dim].cuda()
         self.circle_center = torch.tensor([cfg.collide_circle_x, cfg.collide_circle_y, cfg.collide_circle_z])[0:self.dim].cuda()
         
+        self.min_lr = 1.1e-9
+
         # config for mesh setup (if use mesh)
         self.use_mesh = cfg.use_mesh
         if self.use_mesh == True:
@@ -65,7 +67,7 @@ class ElasticityModel(BaseModel):
             self.sample_resolution_init = self.sample_resolution
         else:
             if self.dim == 2:
-                self.sample_resolution_init = 500
+                self.sample_resolution_init = 1000
             elif self.dim == 3:
                 self.sample_resolution_init = 100
             else:
