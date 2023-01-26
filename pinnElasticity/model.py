@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 from networks import get_network
 from sources import get_source_velocity
 from utils.diff_ops import jacobian, gradient
-from utils.model_utils import sample_uniform_2D, sample_random_2D, sample_boundary_separate
+from utils.model_utils import sample_uniform_2D, sample_random_2D, sample_boundary_separate, collision_plane_force
 from utils.vis_utils import draw_deformation_field2D, save_figure
 
 
@@ -26,16 +26,22 @@ class NeuralElasticity(object):
         self.sample_pattern = cfg.sample
 
         self.device = torch.device("cuda:0")
+        self.train_step = 0
 
         # neural implicit network for density, velocity and pressure field
         n_spatial_dims = 2
         n_field_dims = 2
         self.field = get_network(cfg, n_spatial_dims + 1, n_field_dims).to(self.device)
 
-        self.rho = 1.0
-        self.ratio_arap = 1.0
-        self.ratio_volume = 1.0
-        self.external_force = torch.tensor([0.0, -1.0]).cuda()
+        self.density = cfg.density
+        self.ratio_arap = cfg.ratio_arap
+        self.ratio_volume = cfg.ratio_volume
+        self.gravity_g = cfg.gravity_g
+        self.gravity = self.density * torch.tensor([0.0, self.gravity_g]).cuda()
+
+        self.enable_collision = cfg.enable_collision
+        self.ratio_collision = cfg.ratio_collision
+        self.plane_height = cfg.plane_height
 
     
     @property
@@ -128,6 +134,8 @@ class NeuralElasticity(object):
             
             if i % (self.max_n_iters // 10) == 0:
                 self.save_ckpt(str(i))
+
+            self.train_step += 1
             
         self.save_ckpt("final")
 
@@ -159,7 +167,11 @@ class NeuralElasticity(object):
         phi_dot_dot = gradient(gradient(phi, t_main), t_main)
         dpsi_dphi = gradient(psi, x_main)
 
-        loss_main = torch.sum((self.rho * phi_dot_dot + dpsi_dphi - self.rho * self.external_force) ** 2)
+        external_force = self.gravity
+        if self.enable_collision:
+            external_force += collision_plane_force(phi, self.ratio_collision, self.plane_height)
+
+        loss_main = torch.sum((self.density * phi_dot_dot + dpsi_dphi - self.density * external_force) ** 2)
 
         loss_dict = {"init": loss_init, "main": loss_main}
         return loss_dict
@@ -187,23 +199,30 @@ class NeuralElasticity(object):
             raise NotImplementedError
 
 
-################################### 
+###################################  Visualization ###################################
     def sample_in_visualization(self, resolution, sample_boundary = True):
-        samples = sample_uniform_2D(resolution, device=self.device)
-        time = torch.linspace(0, self.t_range, resolution, device=self.device).unsqueeze(-1).unsqueeze(-1)
+        samples = sample_uniform_2D(resolution, device=self.device).reshape(resolution**2, 2)
+        # print(samples.shape)
+        time = torch.linspace(0, self.t_range, resolution**2, device=self.device).unsqueeze(-1)
+        # print(time.shape)
         return samples, time
 
 
     def visualize(self):
         x_vis, t_vis = self.sample_in_visualization(self.vis_resolution)
         u_vis = self.field(x_vis, t_vis)
+        phi_vis = (u_vis + x_vis).detach().cpu().numpy()
         fig_list = []
         for i, t_i in enumerate(t_vis):
-            fig = draw_deformation_field2D(x_vis)
-            self.write_output(fig, self.cfg.results_dir)
-            fig_list.append(fig)
+            if i % 5 == 0:
+                if self.enable_collision:
+                    fig = draw_deformation_field2D(phi_vis, plane_height=self.plane_height)
+                else:
+                    fig = draw_deformation_field2D(phi_vis)
+                self.write_output(fig, self.cfg.results_dir, t = t_i.detach().cpu().numpy()[0])
+                fig_list.append(fig)
         return fig_list
 
-    def write_output(self, fig, output_folder):
-        save_path = os.path.join(output_folder, f"t{self.timestep:03d}_deformation.png")
+    def write_output(self, fig, output_folder, t = 0):
+        save_path = os.path.join(output_folder, f"t{t:03f}_deformation.png")
         save_figure(fig, save_path)

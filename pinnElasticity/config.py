@@ -46,7 +46,7 @@ class Config(object):
                 response = input('Experiment log/model already exists, overwrite? (y/n) ')
                 if response != 'y':
                     exit()
-                shutil.rmtree(self.exp_dir)
+                shutil.rmtree(self.exp_dir, ignore_errors=True)
             ensure_dirs([self.log_dir, self.model_dir, self.results_dir])
 
         # save this configuration for backup
@@ -113,7 +113,16 @@ class Config(object):
         group.add_argument('--sample', type=str, default='random', choices=['random', 'uniform', 'random+uniform', 'fixed'],
                             help='The sampling strategy to be used during the training.')
 
-        group.add_argument('--t_range', type=float, default=2.5, help='time range')
+        group.add_argument('--t_range', type=float, default=1.0, help='time range')
+
+        group.add_argument('--density', type=float, default=1.0, help='density')
+        group.add_argument('--ratio_arap', type=float, default=1e3, help='ratio for ARAP energy')
+        group.add_argument('--ratio_volume', type=float, default=1e4, help='ratio for volume-preserving energy')
+        group.add_argument('--gravity_g', type=float, default=-9.8, help='gravity acceleration')
+
+        group.add_argument('--enable_collision', type=bool, default=False, help='enable collsion or not')
+        group.add_argument('--ratio_collision', type=float, default=1e6, help='time range')
+        group.add_argument('--plane_height', type=float, default=-2.0, help='time range')
     
     def _add_testing_config_(self, parser):
         """testing configuration"""
