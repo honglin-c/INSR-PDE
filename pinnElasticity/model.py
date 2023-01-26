@@ -137,13 +137,13 @@ class NeuralElasticity(object):
         u_init = self.field(x_init, t_init)
         loss_init = torch.mean(u_init ** 2)
 
-        # boundary condition
-        n_bc_samples = x_init.shape[0] // 100
-        bc_sample_x = sample_boundary_separate(n_bc_samples, side='horizontal', device=self.device).requires_grad_(True)
-        bc_sample_y = sample_boundary_separate(n_bc_samples, side='vertical', device=self.device).requires_grad_(True)
-        t_bound = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
+        # # boundary condition
+        # n_bc_samples = x_init.shape[0] // 100
+        # bc_sample_x = sample_boundary_separate(n_bc_samples, side='horizontal', device=self.device).requires_grad_(True)
+        # bc_sample_y = sample_boundary_separate(n_bc_samples, side='vertical', device=self.device).requires_grad_(True)
+        # t_bound = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
 
-        loss_bound = 0.0
+        # loss_bound = 0.0
 
         # pde residual
         x_main, t_main = self.sample_in_training(is_init=False)
@@ -161,7 +161,7 @@ class NeuralElasticity(object):
 
         loss_main = torch.sum((self.rho * phi_dot_dot + dpsi_dphi - self.rho * self.external_force) ** 2)
 
-        loss_dict = {"init": loss_init, "bound": loss_bound, "main": loss_main}
+        loss_dict = {"init": loss_init, "main": loss_main}
         return loss_dict
 
     def sample_in_training(self, is_init=False):
@@ -190,7 +190,7 @@ class NeuralElasticity(object):
 ################################### 
     def sample_in_visualization(self, resolution, sample_boundary = True):
         samples = sample_uniform_2D(resolution, device=self.device)
-        time = torch.linspace(0, self.t_range, self.t_range+1, device=self.device).unsqueeze(-1).unsqueeze(-1)
+        time = torch.linspace(0, self.t_range, resolution, device=self.device).unsqueeze(-1).unsqueeze(-1)
         return samples, time
 
 
