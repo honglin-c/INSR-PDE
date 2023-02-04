@@ -27,7 +27,7 @@ class Fluid2DModel(BaseModel):
 
     def sample_field(self, resolution, return_samples=False):
         """sample current field with uniform grid points"""
-        grid_samples = sample_uniform(resolution, 2, device=self.device).requires_grad_(True)
+        grid_samples = sample_uniform(resolution, 2, device=self.device, flatten=False).requires_grad_(True)
         out = self.velocity_field(grid_samples)
         if return_samples:
             return out, grid_samples

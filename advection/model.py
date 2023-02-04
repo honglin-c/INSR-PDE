@@ -107,5 +107,5 @@ class Advection1DModel(BaseModel):
         save_path = os.path.join(output_folder, f"t{self.timestep:03d}.png")
         save_figure(fig, save_path)
 
-        save_path = os.path.join(output_folder, f"t{self.timestep:03d}.npy")
+        save_path = os.path.join(output_folder, f"t{self.timestep:03d}.npz")
         np.savez(save_path, values)

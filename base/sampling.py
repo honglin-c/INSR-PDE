@@ -1,12 +1,13 @@
 import torch
 
 
-def sample_uniform(resolution, sdim=1, device="cpu"):
+def sample_uniform(resolution, sdim=1, device="cpu", flatten=True):
     """sample uniform grid points in [-1, 1]^sdim. 
     return shape (resolution, resolution, resolution, sdim)."""
     coords = torch.linspace(0.5, resolution - 0.5, resolution, device=device) / resolution * 2 - 1
     coords = torch.stack(torch.meshgrid([coords] * sdim, indexing='ij'), dim=-1)
-    coords = coords.reshape(resolution**sdim, sdim)
+    if flatten:
+        coords = coords.reshape(resolution**sdim, sdim)
     return coords
 
 
