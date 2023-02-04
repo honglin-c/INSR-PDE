@@ -203,7 +203,7 @@ class NeuralElasticity(object):
     def sample_in_visualization(self, resolution, sample_boundary = True):
         samples = sample_uniform_2D(resolution, device=self.device).reshape(resolution**2, 2)
         # print(samples.shape)
-        time = torch.linspace(0, self.t_range, resolution**2, device=self.device).unsqueeze(-1)
+        time = torch.linspace(0, 1.0, resolution**2, device=self.device).unsqueeze(-1) * self.t_range
         # print(time.shape)
         return samples, time
 
@@ -214,7 +214,7 @@ class NeuralElasticity(object):
         phi_vis = (u_vis + x_vis).detach().cpu().numpy()
         fig_list = []
         for i, t_i in enumerate(t_vis):
-            if i % 5 == 0:
+            if i % 6 == 0:
                 if self.enable_collision:
                     fig = draw_deformation_field2D(phi_vis, plane_height=self.plane_height)
                 else:

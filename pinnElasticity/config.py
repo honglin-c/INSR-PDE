@@ -116,8 +116,8 @@ class Config(object):
         group.add_argument('--t_range', type=float, default=1.0, help='time range')
 
         group.add_argument('--density', type=float, default=1.0, help='density')
-        group.add_argument('--ratio_arap', type=float, default=1e3, help='ratio for ARAP energy')
-        group.add_argument('--ratio_volume', type=float, default=1e4, help='ratio for volume-preserving energy')
+        group.add_argument('--ratio_arap', type=float, default=1e0, help='ratio for ARAP energy')
+        group.add_argument('--ratio_volume', type=float, default=1e1, help='ratio for volume-preserving energy')
         group.add_argument('--gravity_g', type=float, default=-9.8, help='gravity acceleration')
 
         group.add_argument('--enable_collision', type=bool, default=False, help='enable collsion or not')
