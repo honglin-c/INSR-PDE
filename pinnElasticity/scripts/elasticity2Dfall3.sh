@@ -1,17 +1,13 @@
 python main.py \
-    --exp_name elasticity2D_fall_ext_only6 \
+    --exp_name elasticity2D_fall_ext_only5 \
     --num_hidden_layers 3 \
     --hidden_features 256 \
     -sr 100 \
     -vr 5 \
     --t_range 4.0 \
-    -g 1 \
+    -g 2 \
     --max_n_iter 10000 \
     --early_stop \
     --lr 1e-4 \
-    --gravity_g ' -10.0' \
-    --ratio_arap 0e-2 \
-    --ratio_volume 0e-2 \
-    --density 1e0 \
-    --lambda_main 0.01 \
+    --gravity_g ' -1.0' \
     --vis_frequency 1000

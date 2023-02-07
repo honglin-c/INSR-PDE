@@ -39,6 +39,8 @@ class NeuralElasticity(object):
         self.gravity_g = cfg.gravity_g
         self.gravity = self.density * torch.tensor([0.0, self.gravity_g]).cuda()
 
+        self.lambda_main = cfg.lambda_main
+
         self.enable_collision = cfg.enable_collision
         self.ratio_collision = cfg.ratio_collision
         self.plane_height = cfg.plane_height
@@ -51,12 +53,14 @@ class NeuralElasticity(object):
     def get_lr(self):
         return self.optimizer.param_groups[0]['lr']
 
-    def create_optimizer(self):
+    def create_optimizer(self, gamma=0.1, patience=500, min_lr=1e-8):
         param_list = []
         for net in self._trainable_networks.values():
             param_list.append({"params": net.parameters(), "lr": self.cfg.lr})
         self.optimizer = torch.optim.Adam(param_list)
         self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.95 ** 0.0001)
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=gamma, 
+        #     min_lr=min_lr, patience=patience, verbose=True) 
 
     def create_tb(self, name, overwrite=True):
         """create tensorboard log"""
@@ -140,40 +144,75 @@ class NeuralElasticity(object):
         self.save_ckpt("final")
 
     def _train_step(self):
-        # initial condition
+        # initial condition: initial position
         x_init, t_init = self.sample_in_training(is_init=True)
+        t_init.requires_grad_(True)
         u_init = self.field(x_init, t_init)
         loss_init = torch.mean(u_init ** 2)
 
-        # # boundary condition
-        # n_bc_samples = x_init.shape[0] // 100
-        # bc_sample_x = sample_boundary_separate(n_bc_samples, side='horizontal', device=self.device).requires_grad_(True)
-        # bc_sample_y = sample_boundary_separate(n_bc_samples, side='vertical', device=self.device).requires_grad_(True)
-        # t_bound = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
+        # boundary condition: initial velocity
+        phi_init = u_init + x_init  # u_init is the initial deformation displacement
+        phi_dot_init, _ = jacobian(phi_init, t_init)
+        phi_dot_init = torch.squeeze(phi_dot_init)
 
-        # loss_bound = 0.0
+        loss_bound = torch.mean(phi_dot_init ** 2)
 
         # pde residual
         x_main, t_main = self.sample_in_training(is_init=False)
+        # print("x main = ")
+        # print(x_main)
+        # print("t main = ")
+        # print(t_main)
         x_main.requires_grad_(True)
         t_main.requires_grad_(True)
         u_main = self.field(x_main, t_main)
+
+        # print("x_main shape = ")
+        # print(x_main.shape)
+        # print("t_main shape = ")
+        # print(t_main.shape)
+        # print("u_main shape = ")
+        # print(u_main.shape)
 
         phi = u_main + x_main  # u_main is the deformation displacement
         jac_x, _ = jacobian(phi, x_main) # (N, 2, 2)
         U_x, S_x, V_x = torch.svd(jac_x)
         psi = self.ratio_arap * torch.sum((S_x - 1.0) ** 2) + self.ratio_volume * torch.sum((torch.prod(S_x, dim=1) - 1) ** 2) 
 
-        phi_dot_dot = gradient(gradient(phi, t_main), t_main)
+        phi_dot, _ = jacobian(phi, t_main)
+        phi_dot = torch.squeeze(phi_dot)
+        # print("phi_dot shape = ")
+        # print(phi_dot.shape)
+
+        phi_dot_dot, _ = jacobian(phi_dot, t_main)
+        phi_dot_dot = torch.squeeze(phi_dot_dot)
         dpsi_dphi = gradient(psi, x_main)
 
-        external_force = self.gravity
-        if self.enable_collision:
-            external_force += collision_plane_force(phi, self.ratio_collision, self.plane_height)
+        # print("phi shape = ")
+        # print(phi.shape)
+        # print("jac_x shape = ")
+        # print(jac_x.shape)
+        # print("psi shape = ")
+        # print(psi.shape)
+        # print("dpsi_dphi shape = ")
+        # print(dpsi_dphi.shape)
 
-        loss_main = torch.sum((self.density * phi_dot_dot + dpsi_dphi - self.density * external_force) ** 2)
 
-        loss_dict = {"init": loss_init, "main": loss_main}
+        external_force = self.gravity.repeat(u_main.shape[0], 1)
+        # if self.enable_collision:
+        #     external_force += collision_plane_force(phi, self.ratio_collision, self.plane_height)
+
+        # print("phi_dot_dot shape = ")
+        # print(phi_dot_dot.shape)
+        # print("external_force shape = ")
+        # print(external_force.shape)
+
+        # loss_main = torch.mean((self.density * phi_dot_dot) ** 2)
+        # loss_main = torch.mean((self.density * phi_dot - self.density * external_force) ** 2)
+        # loss_main = torch.mean((self.density * phi_dot_dot - self.density * external_force) ** 2)
+        loss_main = torch.mean((self.density * phi_dot_dot + dpsi_dphi - self.density * external_force) ** 2) * self.lambda_main
+
+        loss_dict = {"init": loss_init, "bound": loss_bound, "main": loss_main}
         return loss_dict
 
     def sample_in_training(self, is_init=False):
@@ -210,15 +249,22 @@ class NeuralElasticity(object):
 
     def visualize(self):
         x_vis, t_vis = self.sample_in_visualization(self.vis_resolution)
-        u_vis = self.field(x_vis, t_vis)
-        phi_vis = (u_vis + x_vis).detach().cpu().numpy()
         fig_list = []
         for i, t_i in enumerate(t_vis):
             if i % 6 == 0:
+                t_vis_i = t_i * torch.ones_like(t_vis)
+                u_vis = self.field(x_vis, t_vis_i)
+                phi_vis = (u_vis + x_vis).detach().cpu().numpy()
+                # print("x_vis shape = ")
+                # print(x_vis.shape)
+                # print("t_vis_i shape = ")
+                # print(t_vis_i.shape)
+                # print("phi_vis shape = ")
+                # print(phi_vis.shape)
                 if self.enable_collision:
                     fig = draw_deformation_field2D(phi_vis, plane_height=self.plane_height)
                 else:
-                    fig = draw_deformation_field2D(phi_vis)
+                    fig = draw_deformation_field2D(phi_vis, hide_axis = False)
                 self.write_output(fig, self.cfg.results_dir, t = t_i.detach().cpu().numpy()[0])
                 fig_list.append(fig)
         return fig_list
