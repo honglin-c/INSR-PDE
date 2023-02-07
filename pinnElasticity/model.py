@@ -159,20 +159,9 @@ class NeuralElasticity(object):
 
         # pde residual
         x_main, t_main = self.sample_in_training(is_init=False)
-        # print("x main = ")
-        # print(x_main)
-        # print("t main = ")
-        # print(t_main)
         x_main.requires_grad_(True)
         t_main.requires_grad_(True)
         u_main = self.field(x_main, t_main)
-
-        # print("x_main shape = ")
-        # print(x_main.shape)
-        # print("t_main shape = ")
-        # print(t_main.shape)
-        # print("u_main shape = ")
-        # print(u_main.shape)
 
         phi = u_main + x_main  # u_main is the deformation displacement
         jac_x, _ = jacobian(phi, x_main) # (N, 2, 2)
@@ -181,31 +170,14 @@ class NeuralElasticity(object):
 
         phi_dot, _ = jacobian(phi, t_main)
         phi_dot = torch.squeeze(phi_dot)
-        # print("phi_dot shape = ")
-        # print(phi_dot.shape)
 
         phi_dot_dot, _ = jacobian(phi_dot, t_main)
         phi_dot_dot = torch.squeeze(phi_dot_dot)
         dpsi_dphi = gradient(psi, x_main)
 
-        # print("phi shape = ")
-        # print(phi.shape)
-        # print("jac_x shape = ")
-        # print(jac_x.shape)
-        # print("psi shape = ")
-        # print(psi.shape)
-        # print("dpsi_dphi shape = ")
-        # print(dpsi_dphi.shape)
-
-
         external_force = self.gravity.repeat(u_main.shape[0], 1)
-        # if self.enable_collision:
-        #     external_force += collision_plane_force(phi, self.ratio_collision, self.plane_height)
-
-        # print("phi_dot_dot shape = ")
-        # print(phi_dot_dot.shape)
-        # print("external_force shape = ")
-        # print(external_force.shape)
+        if self.enable_collision:
+            external_force += collision_plane_force(phi, self.ratio_collision, self.plane_height)
 
         # loss_main = torch.mean((self.density * phi_dot_dot) ** 2)
         # loss_main = torch.mean((self.density * phi_dot - self.density * external_force) ** 2)
@@ -241,9 +213,7 @@ class NeuralElasticity(object):
 ###################################  Visualization ###################################
     def sample_in_visualization(self, resolution, sample_boundary = True):
         samples = sample_uniform_2D(resolution, device=self.device).reshape(resolution**2, 2)
-        # print(samples.shape)
         time = torch.linspace(0, 1.0, resolution**2, device=self.device).unsqueeze(-1) * self.t_range
-        # print(time.shape)
         return samples, time
 
 
@@ -255,12 +225,6 @@ class NeuralElasticity(object):
                 t_vis_i = t_i * torch.ones_like(t_vis)
                 u_vis = self.field(x_vis, t_vis_i)
                 phi_vis = (u_vis + x_vis).detach().cpu().numpy()
-                # print("x_vis shape = ")
-                # print(x_vis.shape)
-                # print("t_vis_i shape = ")
-                # print(t_vis_i.shape)
-                # print("phi_vis shape = ")
-                # print(phi_vis.shape)
                 if self.enable_collision:
                     fig = draw_deformation_field2D(phi_vis, plane_height=self.plane_height)
                 else:
