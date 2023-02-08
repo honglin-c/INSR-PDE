@@ -100,7 +100,7 @@ class Config(object):
         group.add_argument('--vis_frequency', type=int, default=2000, help="visualize output every x iterations")
         group.add_argument('--max_n_iters', type=int, default=50000, help='number of epochs to train per scale')
         group.add_argument('--lr', type=float, default=1e-4, help='learning rate, default=0.0005')
-        group.add_argument('--grad_clip', type=float, default=-1, help='grad clipping, l2 norm')
+        group.add_argument('--grad_clip', type=float, default=0.2, help='grad clipping, l2 norm')
         group.add_argument('--early_stop', action='store_true', help="early_stopping")
         
         group.add_argument('--dt', type=float, default=0.1)

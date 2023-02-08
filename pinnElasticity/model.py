@@ -78,7 +78,7 @@ class NeuralElasticity(object):
             param_list = []
             for net in self._trainable_networks.values():
                 param_list = param_list + list(net.parameters())
-            torch.nn.utils.clip_grad_norm_(param_list, 0.1)
+            torch.nn.utils.clip_grad_norm_(param_list, self.cfg.grad_clip)
         self.optimizer.step()
         if self.scheduler is not None:
             # self.scheduler.step(loss_dict['main'])
@@ -166,7 +166,7 @@ class NeuralElasticity(object):
         phi = u_main + x_main  # u_main is the deformation displacement
         jac_x, _ = jacobian(phi, x_main) # (N, 2, 2)
         U_x, S_x, V_x = torch.svd(jac_x)
-        psi = self.ratio_arap * torch.sum((S_x - 1.0) ** 2) + self.ratio_volume * torch.sum((torch.prod(S_x, dim=1) - 1) ** 2) 
+        psi = self.ratio_arap * torch.sum((S_x - 1.0) ** 2) + self.ratio_volume * torch.sum((torch.prod(S_x, dim=1) - 1.0) ** 2) 
 
         phi_dot, _ = jacobian(phi, t_main)
         phi_dot = torch.squeeze(phi_dot)
