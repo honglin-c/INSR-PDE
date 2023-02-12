@@ -120,7 +120,8 @@ class Config(object):
         group.add_argument('--ratio_volume', type=float, default=1e1, help='ratio for volume-preserving energy')
         group.add_argument('--gravity_g', type=float, default=-9.8, help='gravity acceleration')
 
-        group.add_argument('--lambda_main', type=float, default=1.0, help='coeffcients for lambda')
+        group.add_argument('--lambda_main', type=float, default=1.0, help='coeffcients for main loss')
+        group.add_argument('--lambda_bound', type=float, default=1.0, help='coeffcients for boundary loss')
 
         group.add_argument('--enable_collision', type=bool, default=False, help='enable collsion or not')
         group.add_argument('--ratio_collision', type=float, default=1e6, help='time range')

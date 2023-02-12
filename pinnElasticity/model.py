@@ -40,6 +40,7 @@ class NeuralElasticity(object):
         self.gravity = self.density * torch.tensor([0.0, self.gravity_g]).cuda()
 
         self.lambda_main = cfg.lambda_main
+        self.lambda_bound = cfg.lambda_bound
 
         self.enable_collision = cfg.enable_collision
         self.ratio_collision = cfg.ratio_collision
@@ -148,14 +149,23 @@ class NeuralElasticity(object):
         x_init, t_init = self.sample_in_training(is_init=True)
         t_init.requires_grad_(True)
         u_init = self.field(x_init, t_init)
+
         loss_init = torch.mean(u_init ** 2)
 
-        # boundary condition: initial velocity
+        # initial condition: initial velocity
         phi_init = u_init + x_init  # u_init is the initial deformation displacement
         phi_dot_init, _ = jacobian(phi_init, t_init)
         phi_dot_init = torch.squeeze(phi_dot_init)
 
-        loss_bound = torch.mean(phi_dot_init ** 2)
+        loss_vel_init = torch.mean(phi_dot_init ** 2)
+
+        # boundary condition: fix the points at the top
+        n_bc_samples = x_init.shape[0] // 100
+        bc_sample_top = sample_boundary_separate(n_bc_samples, side='top', device=self.device).requires_grad_(True)
+        t_bound = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
+        u_bound = self.field(bc_sample_top, t_bound)
+
+        loss_bound = torch.mean(u_bound ** 2) * self.lambda_bound
 
         # pde residual
         x_main, t_main = self.sample_in_training(is_init=False)
@@ -184,7 +194,7 @@ class NeuralElasticity(object):
         # loss_main = torch.mean((self.density * phi_dot_dot - self.density * external_force) ** 2)
         loss_main = torch.mean((self.density * phi_dot_dot + dpsi_dphi - self.density * external_force) ** 2) * self.lambda_main
 
-        loss_dict = {"init": loss_init, "bound": loss_bound, "main": loss_main}
+        loss_dict = {"init": loss_init, "init_vel": loss_vel_init, "bound": loss_bound, "main": loss_main}
         return loss_dict
 
     def sample_in_training(self, is_init=False):

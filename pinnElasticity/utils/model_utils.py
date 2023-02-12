@@ -43,15 +43,23 @@ def sample_boundary_separate(N, side, epsilon=1e-4, device='cpu'):
     elif side == 'vertical':
         boundary_ranges = [[[-1, 1], [-1 - epsilon, -1 + epsilon]],
                             [[-1, 1], [1 - epsilon, 1 + epsilon]],]
+    elif side == 'left':
+        boundary_ranges = [[[-1 - epsilon, -1 + epsilon], [-1, 1]],]
+    elif side == 'right':
+        boundary_ranges = [[[1 - epsilon, 1 + epsilon], [-1, 1]],]
+    elif side == 'bottom':
+        boundary_ranges = [[[-1, 1], [-1 - epsilon, -1 + epsilon]],]
+    elif side == 'top':
+        boundary_ranges = [[[-1, 1], [1 - epsilon, 1 + epsilon]],]
     else:
         raise RuntimeError
 
     coords = []
     for bound in boundary_ranges:
         x_b, y_b = bound
-        points = torch.empty(N // 2, 2, device=device)
-        points[:, 0] = torch.rand(N // 2, device=device) * (x_b[1] - x_b[0]) + x_b[0]
-        points[:, 1] = torch.rand(N // 2, device=device) * (y_b[1] - y_b[0]) + y_b[0]
+        points = torch.empty(N // len(boundary_ranges), 2, device=device)
+        points[:, 0] = torch.rand(N // len(boundary_ranges), device=device) * (x_b[1] - x_b[0]) + x_b[0]
+        points[:, 1] = torch.rand(N // len(boundary_ranges), device=device) * (y_b[1] - y_b[0]) + y_b[0]
         coords.append(points)
     coords = torch.cat(coords, dim=0)
     return coords
