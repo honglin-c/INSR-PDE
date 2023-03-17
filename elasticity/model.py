@@ -11,6 +11,8 @@ from .losses import *
 from base import jacobian
 from .torchgp import normalize, boundary_faces, sample_surface, volume_weighted_distribution, area_weighted_distribution, per_vertex_areas
 import meshio
+import copy
+
 
 class ElasticityModel(BaseModel):
     def __init__(self, cfg):
@@ -97,9 +99,23 @@ class ElasticityModel(BaseModel):
     def _trainable_networks(self):
         return {'deformation': self.deformation_field}
 
+    def _extrapolate_weights(self):
+        curr_state_dict = copy.deepcopy(self.deformation_field.state_dict())
+        prev_state_dict = copy.deepcopy(self.deformation_field_prev.state_dict())
+        prev_prev_state_dict = copy.deepcopy(self.deformation_field_prev_prev.state_dict())
+        
+        weights_dict = {}
+        for name, param in self.deformation_field_prev.named_parameters():
+            weights_dict[name] = param.data
+        for name, param in self.deformation_field.named_parameters():
+            param.data = param.data * 2 - weights_dict[name]
+
+        self.deformation_field_prev.load_state_dict(curr_state_dict)
+        self.deformation_field_prev_prev.load_state_dict(prev_state_dict)
 
     @BaseModel._timestepping
     def initialize(self):
+        self.loss_threshold = 1e-7
         self._initialize()
 
 
@@ -116,8 +132,15 @@ class ElasticityModel(BaseModel):
 
     @BaseModel._timestepping
     def step(self):
-        self.deformation_field_prev_prev.load_state_dict(self.deformation_field_prev.state_dict())
-        self.deformation_field_prev.load_state_dict(self.deformation_field.state_dict())
+        self.loss_threshold = None
+        if self.weights_extrapolate and self.timestep > 2:
+            self._extrapolate_weights()
+        else:
+            if self.timestep == 1:
+                self.deformation_field_prev_prev.load_state_dict(self.deformation_field.state_dict())   
+            else:
+                self.deformation_field_prev_prev.load_state_dict(self.deformation_field_prev.state_dict())
+            self.deformation_field_prev.load_state_dict(self.deformation_field.state_dict())
 
         self._solve_deformation()
 

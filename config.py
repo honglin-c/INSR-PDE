@@ -94,7 +94,7 @@ class Config(object):
     def _add_network_config_(self, parser):
         """add hyperparameters for network architecture"""
         group = parser.add_argument_group('network')
-        group.add_argument('--network', type=str, default='siren', choices=['siren', 'grid'])
+        group.add_argument('--network', type=str, default='siren')
         group.add_argument('--num_hidden_layers', type=int, default=3)
         group.add_argument('--hidden_features', type=int, default=64)
         group.add_argument('--nonlinearity',type=str, default='sine')
@@ -108,7 +108,9 @@ class Config(object):
         group.add_argument('--lr', type=float, default=1e-4, help='initial learning rate')
         group.add_argument('-sr', '--sample_resolution', type=int, default=128, help='number of samples per iterations')
         group.add_argument('-vr', '--vis_resolution', type=int, default=500)
+        group.add_argument('-we', '--weights_extrapolate', action=argparse.BooleanOptionalAction, default=False)
         group.add_argument('--early_stop', action=argparse.BooleanOptionalAction, default=True)
+        group.add_argument('--optim_type', type=str, default="exp", help="desired checkpoint to restore")
     
     def _add_recap_config_(self, parser):
         """recap configuration"""

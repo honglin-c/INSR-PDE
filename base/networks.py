@@ -1,12 +1,16 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import math
 
 
 def get_network(cfg, in_features, out_features):
     if cfg.network == 'siren':
         return MLP(in_features, out_features, cfg.num_hidden_layers,
             cfg.hidden_features, nonlinearity=cfg.nonlinearity)
+    elif cfg.network == 'ffn':
+        return FFN(in_features, out_features, cfg.num_hidden_layers,
+            cfg.hidden_features)
     else:
         raise NotImplementedError
 
@@ -92,3 +96,61 @@ def init_weights_elu(m):
         if hasattr(m, 'weight'):
             num_input = m.weight.size(-1)
             nn.init.normal_(m.weight, std=np.sqrt(1.5505188080679277) / np.sqrt(num_input))
+
+
+class GaussianFourierFeatureTransform(torch.nn.Module):
+    """
+    An implementation of Gaussian Fourier feature mapping.
+
+    "Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains":
+       https://arxiv.org/abs/2006.10739
+       https://people.eecs.berkeley.edu/~bmild/fourfeat/index.html
+
+    Given an input of size [batches, num_input_channels, width, height],
+     returns a tensor of size [batches, mapping_size*2, width, height].
+    """
+
+    def __init__(self, num_input_channels, mapping_size=256, scale=10):
+        super().__init__()
+
+        self._num_input_channels = num_input_channels
+        self._mapping_size = mapping_size
+        _B = torch.randn((num_input_channels, mapping_size)) * scale
+        self.register_buffer('_B', _B)
+
+    @property
+    def mapping_size(self):
+        return self._mapping_size * 2
+    
+    def forward(self, x):
+        # x: (B, C)
+        assert x.dim() == 2, 'Expected 2D input (got {}D input)'.format(x.dim())
+
+        batches, channels = x.shape
+
+        assert channels == self._num_input_channels,\
+            "Expected input to have {} channels (got {} channels)".format(self._num_input_channels, channels)
+        
+        x = x @ self._B.to(x.device)
+
+        x = 2 * math.pi * x
+
+        return torch.cat([torch.sin(x), torch.cos(x)], dim=1)
+
+
+class FFN(nn.Module):
+    def __init__(self, in_features, out_features, num_hidden_layers, hidden_features) -> None:
+        super().__init__()
+        self.pos_enc = GaussianFourierFeatureTransform(in_features, 256, 10)
+
+        fc_list = [nn.Linear(self.pos_enc.mapping_size, hidden_features), nn.ELU()]
+        for i in range(num_hidden_layers):
+            fc_list.append(nn.Linear(hidden_features, hidden_features))
+            fc_list.append(nn.ELU())
+
+        fc_list.append(nn.Linear(hidden_features, out_features))
+        self.mlp = nn.Sequential(*fc_list)
+    
+    def forward(self, x):
+        x = self.pos_enc(x)
+        return self.mlp(x)

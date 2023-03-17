@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import torch.nn.functional as F
+import copy
 from base import BaseModel, gradient, sample_random, sample_uniform, sample_boundary
 from .examples import get_examples
 from .visualize import draw_signal1D, save_figure
@@ -23,6 +24,18 @@ class Advection1DModel(BaseModel):
     def _trainable_networks(self):
         return {"field": self.field}
     
+    def _extrapolate_weights(self):
+        copy_state_dict = copy.deepcopy(self.field.state_dict())
+        
+        weights_dict = {}
+        for name, param in self.field_prev.named_parameters():
+            weights_dict[name] = param.data
+
+        for name, param in self.field.named_parameters():
+            param.data = param.data * 2 - weights_dict[name]
+
+        self.field_prev.load_state_dict(copy_state_dict)
+
     def _sample_in_training(self):
         return sample_random(self.sample_resolution, 1, device=self.device).requires_grad_(True) * self.length / 2
 
@@ -36,6 +49,7 @@ class Advection1DModel(BaseModel):
 
     @BaseModel._timestepping
     def initialize(self):
+        self.loss_threshold = 1e-8
         if not hasattr(self, "init_cond_func"):
             self.init_cond_func = get_examples(self.cfg.init_cond)
         self._initialize()
@@ -62,7 +76,11 @@ class Advection1DModel(BaseModel):
     @BaseModel._timestepping
     def step(self):
         """advection: dudt = -(vel \cdot grad)u"""
-        self.field_prev.load_state_dict(self.field.state_dict())
+        self.loss_threshold = 2e-6
+        if self.weights_extrapolate and self.timestep > 2:
+            self._extrapolate_weights()
+        else:
+            self.field_prev.load_state_dict(self.field.state_dict())
         self._advect()
 
     @BaseModel._training_loop

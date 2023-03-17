@@ -27,3 +27,12 @@ for t in range(cfg.n_timesteps + 1):
         model.step()
 
     model.write_output(output_folder)
+
+# save time records
+with open(os.path.join(cfg.exp_dir, "time_records.txt"), "w") as f:
+    for record in model.time_records:
+        print(record, file=f)
+
+with open(os.path.join(cfg.exp_dir, "iter_records.txt"), "w") as f:
+    for record in model.iter_records:
+        print(record, file=f)

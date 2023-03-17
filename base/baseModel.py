@@ -1,10 +1,22 @@
 import os
 from abc import ABC, abstractmethod
 import torch
+import numpy as np
+import random
+import time
 from tqdm import tqdm
 import shutil
 from tensorboardX import SummaryWriter
 from .networks import get_network
+
+
+def seed_all(seed):
+    random.seed(seed)     # python random generator
+    np.random.seed(seed)  # numpy random generator
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 class BaseModel(ABC):
@@ -16,6 +28,9 @@ class BaseModel(ABC):
         self.sample_resolution = cfg.sample_resolution
         self.vis_resolution = cfg.vis_resolution
         self.timestep = -1
+
+        self.weights_extrapolate = cfg.weights_extrapolate
+        self.loss_threshold = 0
         
         self.tb = None
         self.min_lr = 1.1e-8
@@ -23,6 +38,9 @@ class BaseModel(ABC):
         self.train_step = 0
 
         self.device = torch.device("cuda:0")
+        seed_all(0)
+        self.time_records = []
+        self.iter_records = []
 
     def _create_network(self, input_dim, output_dim):
         return get_network(self.cfg, input_dim, output_dim).to(self.device)
@@ -52,14 +70,18 @@ class BaseModel(ABC):
         """write visulized/discrete output"""
         pass
 
-    def _reset_optimizer(self, use_scheduler=True, gamma=0.1, patience=500, min_lr=1e-8):
+    def _reset_optimizer(self, max_n_iters, use_scheduler=True, gamma=0.1, patience=500, min_lr=1e-8):
         """create optimizer and scheduler"""
         param_list = []
         for net in self._trainable_networks.values():
             param_list.append({"params": net.parameters(), "lr": self.cfg.lr})
         self.optimizer = torch.optim.Adam(param_list)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=gamma, 
-            min_lr=min_lr, patience=patience, verbose=True) if use_scheduler else None
+        expo_gamma = 0.001 ** (1 / max_n_iters)
+        if self.cfg.optim_type == "exp":
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=expo_gamma)
+        elif self.cfg.optim_type == "plateau":
+            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=gamma, 
+                min_lr=min_lr, patience=patience, verbose=True) if use_scheduler else None
 
     def _create_tb(self, name, overwrite=True):
         """create tensorboard log"""
@@ -78,7 +100,10 @@ class BaseModel(ABC):
 
         self.optimizer.step()
         if self.scheduler is not None:
-            self.scheduler.step(loss_dict['main'])
+            if self.cfg.optim_type == "exp":
+                self.scheduler.step()
+            elif self.cfg.optim_type == "plateau":
+                self.scheduler.step(loss_dict["main"])
 
     def _set_require_grads(self, model, require_grad):
         for p in model.parameters():
@@ -102,11 +127,13 @@ class BaseModel(ABC):
         """
         tag = func.__name__
         def loop(self, *args, **kwargs):
-            pbar = tqdm(range(self.max_n_iters), desc=f"{tag}[{self.timestep}]")
-            self._reset_optimizer()
+            max_n_iters = 20000 if self.timestep == 0 else self.max_n_iters
+            pbar = tqdm(range(max_n_iters), desc=f"{tag}[{self.timestep}]")
+            self._reset_optimizer(max_n_iters)
             min_loss = float("inf")
             accum_steps = 0
             self.train_step = 0
+            start = time.time()
             for i in pbar:
                 # one gradient descent step
                 loss_dict = func(self, *args, **kwargs)
@@ -124,14 +151,28 @@ class BaseModel(ABC):
                     vis_func()
 
                 # early stop when converged
-                if loss_value["main"] < min_loss:
-                    min_loss, accum_steps = loss_value["main"], 0
+                if self.loss_threshold is None:
+                    if loss_value["main"] < min_loss:
+                        min_loss = loss_value["main"]
+                        accum_steps = 0
+                    else:
+                        accum_steps += 1
+                        
+                    if self.cfg.early_stop and accum_steps >= 500:
+                        tqdm.write(f"early stopping at iteration {i} for not dropping")
+                        break
                 else:
-                    accum_steps += 1
+                    if loss_value["main"] < self.loss_threshold:
+                        accum_steps += 1
+                    else:
+                        accum_steps = 0
 
-                if self.cfg.early_stop and self.optimizer.param_groups[0]['lr'] <= self.min_lr:
-                    tqdm.write(f"early stopping at iteration {i}")
-                    break
+                    if self.cfg.early_stop and accum_steps >= 10:
+                        tqdm.write(f"early stopping at iteration {i}")
+                        break
+            end = time.time()
+            self.time_records.append(end - start)
+            self.iter_records.append(self.train_step)
         return loop
 
     def save_ckpt(self, name=None):
