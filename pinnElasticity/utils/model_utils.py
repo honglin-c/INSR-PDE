@@ -1,16 +1,5 @@
 import torch
-
-
-def collision_plane_force(q, ratio_collide, plane_height):
-    '''collision force when the shape is collide with a plane'''
-    collide_indices = (q[:, -1] < plane_height)
-    q_collide = q[collide_indices, :]
-    if q_collide.shape[0] > 0:
-        collide_dist = plane_height - q_collide[:, -1]
-        collide_force = ratio_collide * torch.column_stack((torch.zeros(collide_dist.shape[0], q.shape[1]-1).cuda(), collide_dist))
-    return collide_force
     
-
 def sample_boundary(N, sdim, epsilon=1e-4, device='cpu'):
     """sample boundary points within a small range. NOTE: random samples, not uniform"""
     if sdim == 1:

@@ -1,0 +1,20 @@
+python main.py \
+    --exp_name elasticity2D_collide_circle_rebuttal_1_long \
+    --num_hidden_layers 3 \
+    --hidden_features 68 \
+    -sr 100 \
+    -vr 5 \
+    --t_range 1.0 \
+    -g 1 \
+    --max_n_iter 100000 \
+    --early_stop \
+    --lr 1e-4 \
+    --gravity_g ' -2e0' \
+    --enable_collision_circle 1 \
+    --ratio_collision 1e1 \
+    --ratio_arap 1e0 \
+    --ratio_volume 1e0 \
+    --ratio_main 1e-1 \
+    --ratio_vel_init 1e0 \
+    --density 1e1 \
+    --vis_frequency 1000

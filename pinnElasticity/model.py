@@ -5,13 +5,15 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 import shutil
+import matplotlib.pyplot as plt
+
 from tensorboardX import SummaryWriter
 from networks import get_network
 from sources import get_source_velocity
 from utils.diff_ops import jacobian, gradient
-from utils.model_utils import sample_uniform_2D, sample_random_2D, sample_boundary_separate, collision_plane_force
+from utils.model_utils import sample_uniform_2D, sample_random_2D, sample_boundary_separate
 from utils.vis_utils import draw_deformation_field2D, save_figure
-
+from collision import collision_plane_force, collision_circle_force
 
 class NeuralElasticity(object):
     def __init__(self, cfg):
@@ -21,6 +23,7 @@ class NeuralElasticity(object):
         self.max_n_iters = cfg.max_n_iters
         self.sample_resolution = cfg.sample_resolution
         self.vis_resolution = cfg.vis_resolution
+        self.vis_resolution_time = cfg.vis_resolution_time
         self.timestep = 0
         self.tb = None
         self.sample_pattern = cfg.sample
@@ -39,12 +42,25 @@ class NeuralElasticity(object):
         self.gravity_g = cfg.gravity_g
         self.gravity = self.density * torch.tensor([0.0, self.gravity_g]).cuda()
 
-        self.lambda_main = cfg.lambda_main
-        self.lambda_bound = cfg.lambda_bound
+        self.external_force = torch.tensor([cfg.external_force_x, cfg.external_force_y]).cuda()
 
-        self.enable_collision = cfg.enable_collision
+        self.ratio_init = cfg.ratio_init
+        self.ratio_vel_init = cfg.ratio_vel_init
+        self.ratio_main = cfg.ratio_main
+        self.ratio_bound = cfg.ratio_bound
+
+        self.enable_collision_plane = cfg.enable_collision_plane
         self.ratio_collision = cfg.ratio_collision
         self.plane_height = cfg.plane_height
+
+        self.enable_collision_circle = cfg.enable_collision_circle
+        self.circle_center = torch.tensor([cfg.collision_circle_x, cfg.collision_circle_y]).cuda()
+        self.circle_radius = cfg.collision_circle_r
+
+        self.enable_bound_top = cfg.enable_bound_top
+        self.enable_bound_bottom = cfg.enable_bound_bottom
+        self.enable_bound_left = cfg.enable_bound_left
+        self.enable_bound_right = cfg.enable_bound_right
 
     
     @property
@@ -59,7 +75,8 @@ class NeuralElasticity(object):
         for net in self._trainable_networks.values():
             param_list.append({"params": net.parameters(), "lr": self.cfg.lr})
         self.optimizer = torch.optim.Adam(param_list)
-        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.95 ** 0.0001)
+        # self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma= 0.001 *  (1. / self.max_n_iters))
+        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma= 0.95 ** 0.0001)
         # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=gamma, 
         #     min_lr=min_lr, patience=patience, verbose=True) 
 
@@ -150,22 +167,60 @@ class NeuralElasticity(object):
         t_init.requires_grad_(True)
         u_init = self.field(x_init, t_init)
 
-        loss_init = torch.mean(u_init ** 2)
+        loss_init = torch.mean(u_init ** 2) * self.ratio_init
 
         # initial condition: initial velocity
         phi_init = u_init + x_init  # u_init is the initial deformation displacement
         phi_dot_init, _ = jacobian(phi_init, t_init)
         phi_dot_init = torch.squeeze(phi_dot_init)
 
-        loss_vel_init = torch.mean(phi_dot_init ** 2)
+        loss_vel_init = torch.mean(phi_dot_init ** 2) * self.ratio_vel_init
 
-        # boundary condition: fix the points at the top
-        n_bc_samples = x_init.shape[0] // 100
-        bc_sample_top = sample_boundary_separate(n_bc_samples, side='top', device=self.device).requires_grad_(True)
-        t_bound = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
-        u_bound = self.field(bc_sample_top, t_bound)
+        # boundary condition 1: fix the points at the top
+        if self.enable_bound_top:
+            n_bc_samples = x_init.shape[0] // 100
+            bc_sample_top = sample_boundary_separate(n_bc_samples, side='top', device=self.device).requires_grad_(True)
+            t_bound_top = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
+            u_bound_top = self.field(bc_sample_top, t_bound_top)
 
-        loss_bound = torch.mean(u_bound ** 2) * self.lambda_bound
+            loss_bound_top = torch.mean(u_bound_top ** 2) * self.ratio_bound
+        else:
+            loss_bound_top = 0.0
+
+        # boundary condition 2: fix the points at the bottom, and move them with offset (0, -2)
+        if self.enable_bound_bottom:
+            n_bc_samples = x_init.shape[0] // 100
+            bc_sample_bottom = sample_boundary_separate(n_bc_samples, side='bottom', device=self.device).requires_grad_(True)
+            t_bound_bottom = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
+            u_bound_bottom = self.field(bc_sample_bottom, t_bound_bottom)
+
+            offset_bottom = torch.tensor([0.0, -2.0]).cuda().repeat(n_bc_samples, 1)
+            loss_bound_bottom = torch.mean((u_bound_bottom - offset_bottom) ** 2) * self.ratio_bound
+        else:
+            loss_bound_bottom = 0.0
+
+        # boundary condition 3: fix the points at the left, and move them with offset (-1, 0)
+        if self.enable_bound_left:
+            n_bc_samples = x_init.shape[0] // 100
+            bc_sample_left = sample_boundary_separate(n_bc_samples, side='left', device=self.device).requires_grad_(True)
+            t_bound_left = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
+            u_bound_left = self.field(bc_sample_left, t_bound_left)
+
+            loss_bound_left = torch.mean(u_bound_left ** 2) * self.ratio_bound
+        else:
+            loss_bound_left = 0.0
+
+        # boundary condition 4: fix the points at the right, and move them with offset (2, 0)
+        if self.enable_bound_right:
+            n_bc_samples = x_init.shape[0] // 100
+            bc_sample_right = sample_boundary_separate(n_bc_samples, side='right', device=self.device).requires_grad_(True)
+            t_bound_right = torch.rand(n_bc_samples, device=self.device).unsqueeze(-1) * self.t_range # (0, t_range)
+            u_bound_right = self.field(bc_sample_right, t_bound_right)
+
+            offset_right = torch.tensor([2.0, 0.0]).cuda().repeat(n_bc_samples, 1)
+            loss_bound_right = torch.mean((u_bound_right - offset_right) ** 2) * self.ratio_bound
+        else:
+            loss_bound_right = 0.0
 
         # pde residual
         x_main, t_main = self.sample_in_training(is_init=False)
@@ -185,16 +240,32 @@ class NeuralElasticity(object):
         phi_dot_dot = torch.squeeze(phi_dot_dot)
         dpsi_dphi = gradient(psi, x_main)
 
-        external_force = self.gravity.repeat(u_main.shape[0], 1)
-        if self.enable_collision:
-            external_force += collision_plane_force(phi, self.ratio_collision, self.plane_height)
+        external_force = self.gravity.repeat(u_main.shape[0], 1) + self.external_force.repeat(u_main.shape[0], 1)
+        if self.enable_collision_plane:
+            collide_force = collision_plane_force(phi, self.ratio_collision, self.plane_height)
+            external_force += collide_force
+
+        if self.enable_collision_circle:
+            collide_force = collision_circle_force(phi, self.ratio_collision, self.circle_center, self.circle_radius)
+            external_force += collide_force
 
         # loss_main = torch.mean((self.density * phi_dot_dot) ** 2)
         # loss_main = torch.mean((self.density * phi_dot - self.density * external_force) ** 2)
         # loss_main = torch.mean((self.density * phi_dot_dot - self.density * external_force) ** 2)
-        loss_main = torch.mean((self.density * phi_dot_dot + dpsi_dphi - self.density * external_force) ** 2) * self.lambda_main
+        loss_main = torch.mean((self.density * phi_dot_dot + dpsi_dphi - self.density * external_force) ** 2) * self.ratio_main
 
-        loss_dict = {"init": loss_init, "init_vel": loss_vel_init, "bound": loss_bound, "main": loss_main}
+        # # collision 
+        # if self.enable_collision:
+        #     loss_collision = collision_plane_loss(phi, phi_dot, self.ratio_collision, self.plane_height)
+        # else:
+        #     loss_collision = 0.0
+
+        if self.enable_bound_top and self.enable_bound_bottom:
+            loss_dict = {"init": loss_init, "init_vel": loss_vel_init, "bound": loss_bound_top, "bound_bottom": loss_bound_bottom, "main": loss_main}
+        elif self.enable_bound_left and self.enable_bound_right:
+            loss_dict = {"init": loss_init, "init_vel": loss_vel_init, "bound_left": loss_bound_left, "bound_right": loss_bound_right, "main": loss_main}
+        else:
+            loss_dict = {"init": loss_init, "init_vel": loss_vel_init, "main": loss_main}
         return loss_dict
 
     def sample_in_training(self, is_init=False):
@@ -221,28 +292,34 @@ class NeuralElasticity(object):
 
 
 ###################################  Visualization ###################################
-    def sample_in_visualization(self, resolution, sample_boundary = True):
+    def sample_in_visualization(self, resolution, t_count = 10, sample_boundary = True):
         samples = sample_uniform_2D(resolution, device=self.device).reshape(resolution**2, 2)
-        time = torch.linspace(0, 1.0, resolution**2, device=self.device).unsqueeze(-1) * self.t_range
+        time = torch.linspace(0, 1.0, t_count, device=self.device).unsqueeze(-1) * self.t_range
         return samples, time
-
+    
 
     def visualize(self):
-        x_vis, t_vis = self.sample_in_visualization(self.vis_resolution)
+        x_vis, t_vis = self.sample_in_visualization(self.vis_resolution, self.vis_resolution_time)
         fig_list = []
         for i, t_i in enumerate(t_vis):
-            if i % 6 == 0:
-                t_vis_i = t_i * torch.ones_like(t_vis)
-                u_vis = self.field(x_vis, t_vis_i)
-                phi_vis = (u_vis + x_vis).detach().cpu().numpy()
-                if self.enable_collision:
-                    fig = draw_deformation_field2D(phi_vis, plane_height=self.plane_height)
-                else:
-                    fig = draw_deformation_field2D(phi_vis, hide_axis = False)
-                self.write_output(fig, self.cfg.results_dir, t = t_i.detach().cpu().numpy()[0])
-                fig_list.append(fig)
+            t_vis_i = t_i * torch.ones(x_vis.shape[0], 1, device=self.device)
+            u_vis = self.field(x_vis, t_vis_i)
+            phi_vis = (u_vis + x_vis).detach().cpu().numpy()
+            if self.enable_collision_plane:
+                fig = draw_deformation_field2D(phi_vis, plane_height=self.plane_height, hide_axis=False)
+            elif self.enable_collision_circle:
+                fig = draw_deformation_field2D(phi_vis, circle_center=self.circle_center, circle_radius=self.circle_radius, hide_axis=False)
+            else:
+                fig = draw_deformation_field2D(phi_vis, hide_axis = False)
+            self.write_output(fig, self.cfg.results_dir, t = t_i.detach().cpu().numpy()[0])
+            fig_list.append(fig)
         return fig_list
+
 
     def write_output(self, fig, output_folder, t = 0):
         save_path = os.path.join(output_folder, f"t{t:03f}_deformation.png")
         save_figure(fig, save_path)
+
+    def render_output(self, fig, output_folder, t = 0):
+        save_path = os.path.join(output_folder, f"t{t:03f}_deformation.png")
+        plt.savefig(save_path, dpi=450, transparent=True)

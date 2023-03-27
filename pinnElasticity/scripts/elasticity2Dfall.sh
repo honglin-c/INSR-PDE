@@ -13,6 +13,6 @@ python main.py \
     --ratio_arap 0e-9 \
     --ratio_volume 0e-3 \
     --density 1e0 \
-    --lambda_main 1e-2 \
-    --lambda_bound 1e2 \
+    --ratio_main 1e-2 \
+    --ratio_bound 1e2 \
     --vis_frequency 1000

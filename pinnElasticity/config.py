@@ -42,7 +42,7 @@ class Config(object):
                     self.__setattr__(k, v)
             return
         else:
-            if os.path.exists(self.exp_dir):
+            if os.path.exists(self.exp_dir) and not self.rendering:
                 response = input('Experiment log/model already exists, overwrite? (y/n) ')
                 if response != 'y':
                     exit()
@@ -84,6 +84,7 @@ class Config(object):
             help="path to project folder where models and logs will be saved")
         group.add_argument('--exp_name', type=str, default=os.getcwd().split('/')[-1], help="name of this experiment")
         group.add_argument('-g', '--gpu_ids', type=str, default=0, help="gpu to use, e.g. 0  0,1,2. CPU not supported.")
+        group.add_argument('-r', '--rendering', type=bool, default=False, help="if it is in the rendering mode")
 
     def _add_network_config_(self, parser):
         """add hyperparameters for network architecture"""
@@ -107,6 +108,7 @@ class Config(object):
         group.add_argument('-T','--n_timesteps', type=int, default=1)
         group.add_argument('-sr', '--sample_resolution', type=int, default=128)
         group.add_argument('-vr', '--vis_resolution', type=int, default=32)
+        group.add_argument('-vr_time', '--vis_resolution_time', type=int, default=5)
         group.add_argument('--fps', type=int, default=10)
 
         group.add_argument('--boundary_cond', type=str, default='zero', choices=['zero', 'none'])
@@ -117,16 +119,33 @@ class Config(object):
 
         group.add_argument('--density', type=float, default=1.0, help='density')
         group.add_argument('--ratio_arap', type=float, default=1e0, help='ratio for ARAP energy')
-        group.add_argument('--ratio_volume', type=float, default=1e1, help='ratio for volume-preserving energy')
+        group.add_argument('--ratio_volume', type=float, default=0e0, help='ratio for volume-preserving energy')
+        group.add_argument('--ratio_main', type=float, default=1.0, help='ratio for main loss')
+        group.add_argument('--ratio_bound', type=float, default=1.0, help='ratio for boundary loss')
+        group.add_argument('--ratio_init', type=float, default=1.0, help='ratio for init loss')
+        group.add_argument('--ratio_vel_init', type=float, default=1.0, help='ratio for velocity init loss')
+
         group.add_argument('--gravity_g', type=float, default=-9.8, help='gravity acceleration')
 
-        group.add_argument('--lambda_main', type=float, default=1.0, help='coeffcients for main loss')
-        group.add_argument('--lambda_bound', type=float, default=1.0, help='coeffcients for boundary loss')
-
-        group.add_argument('--enable_collision', type=bool, default=False, help='enable collsion or not')
+        group.add_argument('--external_force_x', type=float, default=0.0, help='horizontal external force')
+        group.add_argument('--external_force_y', type=float, default=0.0, help='vertical external force')
+        
         group.add_argument('--ratio_collision', type=float, default=1e6, help='time range')
+
+        group.add_argument('--enable_collision_plane', type=bool, default=False, help='enable collsion for plane or not')
         group.add_argument('--plane_height', type=float, default=-2.0, help='time range')
-    
+
+        group.add_argument('--enable_collision_circle', type=bool, default=False, help='enable collsion for circle or not')
+        group.add_argument('--collision_circle_x', type=float, default=0)
+        group.add_argument('--collision_circle_y', type=float, default=-2)
+        group.add_argument('--collision_circle_z', type=float, default=0)
+        group.add_argument('--collision_circle_r', type=float, default=1)
+
+        group.add_argument('--enable_bound_top', type=bool, default=False, help='enable BC at the top or not')
+        group.add_argument('--enable_bound_bottom', type=bool, default=False, help='enable BC at the bottom or not')
+        group.add_argument('--enable_bound_left', type=bool, default=False, help='enable BC at the left or not')
+        group.add_argument('--enable_bound_right', type=bool, default=False, help='enable BC at the right or not')
+
     def _add_testing_config_(self, parser):
         """testing configuration"""
         group = parser.add_argument_group('testing')

@@ -1,0 +1,16 @@
+python main.py \
+    --exp_name elasticity2D_arap \
+    --num_hidden_layers 3 \
+    --hidden_features 68 \
+    -sr 100 \
+    -vr 5 \
+    --t_range 4.0 \
+    -g 1 \
+    --max_n_iter 10000 \
+    --early_stop \
+    --lr 2e-4 \
+    --gravity_g 0 \
+    --ratio_arap 1e-1 \
+    --ratio_main 1e-1 \
+    --plane_height ' -3.0' \
+    --vis_frequency 1000

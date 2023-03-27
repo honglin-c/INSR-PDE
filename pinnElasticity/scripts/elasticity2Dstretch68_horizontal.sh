@@ -1,0 +1,17 @@
+python main.py \
+    --exp_name elasticity2D_stretch_68_horizontal_5_v3 \
+    --num_hidden_layers 3 \
+    --hidden_features 68 \
+    -sr 100 \
+    -vr 5 \
+    --t_range 4.0 \
+    -g 3 \
+    --max_n_iter 50000 \
+    --early_stop \
+    --lr 1e-4 \
+    --gravity_g ' 0.0' \
+    --enable_bound_left 1 \
+    --enable_bound_right 1 \
+    --ratio_arap 1e0 \
+    --ratio_volume 1e0 \
+    --vis_frequency 1000
