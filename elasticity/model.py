@@ -101,6 +101,9 @@ class ElasticityModel(BaseModel):
     @BaseModel._timestepping
     def initialize(self):
         self._initialize()
+        # Initialize all the previous deformation fields to be zeros
+        self.deformation_field_prev_prev.load_state_dict(self.deformation_field.state_dict())
+        self.deformation_field_prev.load_state_dict(self.deformation_field.state_dict())
 
 
     @BaseModel._training_loop
