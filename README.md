@@ -41,6 +41,6 @@ bash scripts/advect1D.sh
     author={Honglin Chen and Rundi Wu and Eitan Grinspun and Changxi Zheng and Peter Yichen Chen},
     booktitle={International Conference on Machine Learning},
     year={2023},
-    url={https://openreview.net/forum?id=7BO6rpA6qQ}}
+    url={https://openreview.net/forum?id=7BO6rpA6qQ}
 }
 ```
