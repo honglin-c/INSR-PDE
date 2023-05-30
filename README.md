@@ -6,7 +6,7 @@
 
 Official implementation for the paper:
 > **[Simulating Physics with Implicit Neural Spatial Representations](https://www.cs.columbia.edu/cg/INSR-PDE/)**  
-> [Honglin Chen*](https://www.cs.columbia.edu/~honglinchen/)<sup>1</sup>, [Rundi Wu*](https://www.cs.columbia.edu/~rundi/)<sup>1</sup>, [Eitan Grinspun](https://www.dgp.toronto.edu/~eitan/)<sup>2</sup>, [Changxi Zheng](http://www.cs.columbia.edu/~cxz/)<sup>1</sup>, [Peter Yichen Chen](https://peterchencyc.com/)<sup>1</sup>
+> [Honglin Chen*](https://www.cs.columbia.edu/~honglinchen/)<sup>1</sup>, [Rundi Wu*](https://www.cs.columbia.edu/~rundi/)<sup>1</sup>, [Eitan Grinspun](https://www.dgp.toronto.edu/~eitan/)<sup>2</sup>, [Changxi Zheng](http://www.cs.columbia.edu/~cxz/)<sup>1</sup>, [Peter Yichen Chen](https://peterchencyc.com/)<sup>1</sup> 
 > <sup>1</sup>Columbia University, <sup>2</sup>University of Toronto  
 > ICML 2023
 
@@ -18,7 +18,7 @@ Prerequisites:
 
 Install dependencies with pip:
 ```bash
-pip install -r requirement.txt
+pip install -r requirements.txt
 # NOTE: check https://pytorch.org/ for pytorch installation command for your CUDA version
 ```
 
