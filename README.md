@@ -2,7 +2,7 @@
 
 ### [Project Page](https://www.cs.columbia.edu/cg/INSR-PDE/)  | [Paper](https://arxiv.org/abs/2210.00124)
 
-![teaser](https://github.com/honglin-c/INSR-PDE/blob/main/.github/images/teaser.png)
+<img src="https://github.com/honglin-c/INSR-PDE/blob/main/.github/images/teaser.png" width="200">
 
 Official implementation for the paper:
 > **[Simulating Physics with Implicit Neural Spatial Representations](https://www.cs.columbia.edu/cg/INSR-PDE/)**  
