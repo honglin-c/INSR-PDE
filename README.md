@@ -36,7 +36,7 @@ bash scripts/advect1D.sh
 
 ## Citation
 ```
-@article{chenwu2023insr-pde,
+@inproceedings{chenwu2023insr-pde,
     title={Simulating Physics with Implicit Neural Spatial Representations},
     author={Honglin Chen and Rundi Wu and Eitan Grinspun and Changxi Zheng and Peter Yichen Chen},
     booktitle={International Conference on Machine Learning},
