@@ -40,7 +40,6 @@ bash scripts/advect1D.sh
     title={Simulating Physics with Implicit Neural Spatial Representations},
     author={Honglin Chen and Rundi Wu and Eitan Grinspun and Changxi Zheng and Peter Yichen Chen},
     booktitle={International Conference on Machine Learning},
-    year={2023},
-    url={https://openreview.net/forum?id=7BO6rpA6qQ}
+    year={2023}
 }
 ```
