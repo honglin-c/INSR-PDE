@@ -127,7 +127,7 @@ class BaseModel(ABC):
         """
         tag = func.__name__
         def loop(self, *args, **kwargs):
-            max_n_iters = 20000 if self.timestep == 0 else self.max_n_iters
+            max_n_iters = 10000 if self.timestep == 0 else self.max_n_iters
             pbar = tqdm(range(max_n_iters), desc=f"{tag}[{self.timestep}]")
             self._reset_optimizer(max_n_iters)
             min_loss = float("inf")

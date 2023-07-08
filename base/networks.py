@@ -8,6 +8,9 @@ def get_network(cfg, in_features, out_features):
     if cfg.network == 'siren':
         return MLP(in_features, out_features, cfg.num_hidden_layers,
             cfg.hidden_features, nonlinearity=cfg.nonlinearity)
+    elif cfg.network == 'hashgrid':
+        from .tcnn_nets import HashGridMLP
+        return HashGridMLP(in_features, out_features)
     elif cfg.network == 'ffn':
         return FFN(in_features, out_features, cfg.num_hidden_layers,
             cfg.hidden_features)
