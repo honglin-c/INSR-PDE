@@ -1,6 +1,8 @@
 # INSR-PDE
 
-Run each shell script under `scripts` for eaxmples shown in the paper
+Use hashgrid mlp by specifying `--network hashgrid`. See `base/network.py`.
+
+Need to install extra tcnn packages:
 ```bash
-bash scripts/xxx.sh
+pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 ```
